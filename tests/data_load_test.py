@@ -29,6 +29,19 @@ import pandas as pd
 import tensorflow as tf
 
 from lift_ml.data.loader import DataLoader
+from lift_ml.config import DataConfig
+
+import sys
+
+print("PYTHON:", sys.executable)
+print("VERSION:", sys.version)
+
+try:
+    import pandas
+    print("PANDAS:", pandas.__file__)
+except Exception as e:
+    print("PANDAS IMPORT ERROR:", repr(e))
+    raise
 
 class TestLoad(unittest.TestCase):
 
@@ -54,8 +67,16 @@ class TestLoad(unittest.TestCase):
         df.to_csv(os.path.join(self.valid_path, "none", "data1.csv"), index=False)
         df.to_csv(os.path.join(self.test_path, "none", "data1.csv"), index=False)
 
-        self.loader = DataLoader(
-                self.train_path, self.valid_path, self.test_path, seq_length=5, augment_train=False)
+        self.config = DataConfig(
+            train_path=self.train_path,
+            valid_path=self.valid_path,
+            test_path=self.test_path,
+            seq_length=5,
+            data_dimension=2,
+            labels=["barbell", "none"]
+        )
+
+        self.loader = DataLoader(self.config, augment_train=False)
 
     def tearDown(self):
         if os.path.exists(self.base_dir):
@@ -120,6 +141,50 @@ class TestLoad(unittest.TestCase):
         self.assertIsInstance(self.loader.train_data, tf.data.Dataset)
         self.assertIsInstance(self.loader.valid_data, tf.data.Dataset)
         self.assertIsInstance(self.loader.test_data, tf.data.Dataset)
+
+    def test_load_csv_folder_loads_correctly(self):
+        """Loads CSV files and matches labels."""
+
+        # Use the training path for testing
+        data, labels, length = self.loader.load_csv_folder(self.train_path)
+
+        # Expecting 2 files per class
+        expected_length = 2  # we created 1 CSV per class in setUp
+        self.assertEqual(length, len(labels))
+        self.assertEqual(length, len(data))
+
+        # Labels should match the folder names
+        for label in labels:
+            self.assertIn(label, self.config.labels)
+
+        # Each data entry should be a numpy array with the correct dimension
+        for arr in data:
+            self.assertIsInstance(arr, np.ndarray)
+            self.assertEqual(arr.shape[1], self.config.data_dimension)
+
+    def test_load_csv_folder_skips_invalid_files(self):
+        """Skips non-CSV or incorrectly formatted files."""
+
+        # Create an invalid CSV file (wrong dimension)
+        bad_df = pd.DataFrame(np.random.rand(5, 3), columns=["a", "b", "c"])
+        bad_path = os.path.join(self.train_path, "barbell", "bad_data.csv")
+        bad_df.to_csv(bad_path, index=False)
+
+        with self.assertRaises(ValueError):
+            self.loader.load_csv_folder(self.train_path)
+
+    def test_load_csv_folder_skips_unknown_labels(self):
+        """Warns and skips folders not in config.labels."""
+
+        unknown_dir = os.path.join(self.base_dir, "train", "unknown_label")
+        os.makedirs(unknown_dir, exist_ok=True)
+        df = pd.DataFrame(np.random.rand(5, self.config.data_dimension), columns=["ax", "ay"])
+        df.to_csv(os.path.join(unknown_dir, "file.csv"), index=False)
+
+        # Should load existing valid data and skip unknown folder without crashing
+        data, labels, length = self.loader.load_csv_folder(self.train_path)
+        for label in labels:
+            self.assertIn(label, self.config.labels)
 
 if __name__ == "__main__":
     unittest.main()

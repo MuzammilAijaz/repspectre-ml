@@ -23,24 +23,21 @@ import pandas as pd
 import tensorflow as tf
 
 from lift_ml.data.augment import augment_data
-
-# Labels
-label1 = "barbell"
-label2 = "none"
-DIMENSION = 2 
+from lift_ml.config import DataConfig
 
 class DataLoader(object):
     """Loads CSV data and prepares for training."""
 
-    def __init__(self, train_path, valid_path, test_path, seq_length, augment_train=True):
-        self.dim = DIMENSION
-        self.seq_length = seq_length
-        self.label2id = {label1: 0, label2: 1}
+    def __init__(self, config: DataConfig, augment_train=True):
+        self.config = config
+        self.dim = config.data_dimension
+        self.seq_length = config.seq_length
+        self.label2id = {label: i for i, label in enumerate(config.labels)}
 
         # Load CSV data
-        self.train_data, self.train_label, self.train_len = self.load_csv_folder(train_path)
-        self.valid_data, self.valid_label, self.valid_len = self.load_csv_folder(valid_path)
-        self.test_data,  self.test_label,  self.test_len  = self.load_csv_folder(test_path)
+        self.train_data, self.train_label, self.train_len = self.load_csv_folder(config.train_path)
+        self.valid_data, self.valid_label, self.valid_len = self.load_csv_folder(config.valid_path)
+        self.test_data,  self.test_label,  self.test_len  = self.load_csv_folder(config.test_path)
 
         # Augment training data if requested
         if augment_train:
@@ -49,21 +46,32 @@ class DataLoader(object):
             print(f"After augmentation, train_data_length: {self.train_len}")
 
     def load_csv_folder(self, root_path):
-        """ Load CSV files from a folder with subfolders for each class. """
+        """ 
+        Load CSV files from a folder with subfolders for each class.
+
+        Expected Folder Structure:
+        --------------------------
+         root_path/
+            class1/
+                file1.csv
+            class2/
+                file2.csv
+        """
 
         data = []
         labels = []
 
-        # Expected structure:
-        # root_path/
-        #    onBarbell/
-        #        file1.csv
-        #    notOnBarbell/
-        #        file2.csv
+        if not os.path.exists(root_path):
+            print(f"Warning: Path {root_path} does not exist.")
+            return data, labels, 0
 
         for label_name in os.listdir(root_path):
             class_path = os.path.join(root_path, label_name)
             if not os.path.isdir(class_path):
+                continue
+            
+            if label_name not in self.label2id:
+                print(f"Warning: Label {label_name} in {root_path} not found in config labels {self.config.labels}. Skipping.")
                 continue
 
             for file in os.listdir(class_path):
@@ -71,11 +79,11 @@ class DataLoader(object):
                     file_path = os.path.join(class_path, file)
                     df = pd.read_csv(file_path)
 
-                    # Expecting columns: ax, ay, az, gx, gy, gz
-                    if df.shape[1] != DIMENSION:
-                        raise ValueError(f"Invalid CSV format in {file_path}")
+                    # Expecting columns matching config.data_dimension
+                    if df.shape[1] != self.dim:
+                        raise ValueError(f"Invalid CSV format in {file_path}. Expected {self.dim} columns, got {df.shape[1]}.")
 
-                    # Convert to numpy [seq_len, 6]
+                    # Convert to numpy [seq_len, dim]
                     data.append(df.values)
                     labels.append(label_name)
 
@@ -98,7 +106,7 @@ class DataLoader(object):
 
         return padded_data
 
-    def format_support_func(self, padded_num, length, data, label):
+    def _format_support_func(self, padded_num, length, data, label):
         length *= padded_num
         features = np.zeros((length, self.seq_length, self.dim))
         labels = np.zeros(length)
@@ -114,12 +122,11 @@ class DataLoader(object):
 
     def format(self):
         padded_num = 2
-        self.train_len, self.train_data = self.format_support_func(
+        self.train_len, self.train_data = self._format_support_func(
             padded_num, self.train_len, self.train_data, self.train_label)
 
-        self.valid_len, self.valid_data = self.format_support_func(
+        self.valid_len, self.valid_data = self._format_support_func(
             padded_num, self.valid_len, self.valid_data, self.valid_label)
 
-        self.test_len, self.test_data = self.format_support_func(
+        self.test_len, self.test_data = self._format_support_func(
             padded_num, self.test_len, self.test_data, self.test_label)
-
