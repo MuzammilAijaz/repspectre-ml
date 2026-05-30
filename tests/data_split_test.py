@@ -14,64 +14,81 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Test for data_split.py."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import json
+import os
+import shutil
 import unittest
-from data_split import read_data
-from data_split import split_data
+import pandas as pd
+import numpy as np
+from lift_ml.data.split import split_data
+from lift_ml.config import DataConfig
 
+class TestDataSplit(unittest.TestCase):
 
-class TestSplit(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = "test_split_env"
+        self.raw_root = os.path.join(self.test_dir, "raw_data")
+        self.output_root = os.path.join(self.test_dir, "data")
+        
+        self.labels = ["barbell", "none"]
+        
+        # Create raw data
+        for label in self.labels:
+            label_dir = os.path.join(self.raw_root, label)
+            os.makedirs(label_dir, exist_ok=True)
+            for i in range(10):
+                df = pd.DataFrame(np.random.rand(5, 2), columns=["ax", "ay"])
+                df.to_csv(os.path.join(label_dir, f"file_{i}.csv"), index=False)
 
-  def setUp(self):  # pylint: disable=g-missing-super-call
-    self.data = read_data("./data/complete_data")
-    self.num_dic = {"wing": 0, "ring": 0, "slope": 0, "negative": 0}
-    with open("./data/complete_data", "r") as f:
-      lines = f.readlines()
-      self.num = len(lines)
+        self.config = DataConfig(
+            train_path=os.path.join(self.output_root, "train"),
+            valid_path=os.path.join(self.output_root, "valid"),
+            test_path=os.path.join(self.output_root, "test"),
+            labels=self.labels
+        )
 
-  def test_read_data(self):
-    self.assertEqual(len(self.data), self.num)
-    self.assertIsInstance(self.data, list)
-    self.assertIsInstance(self.data[0], dict)
-    self.assertEqual(
-        set(list(self.data[-1])), set(["gesture", "accel_ms2_xyz", "name"]))
+    def tearDown(self):
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
 
-  def test_split_data(self):
-    with open("./data/complete_data", "r") as f:
-      lines = f.readlines()
-      for idx, line in enumerate(lines):  # pylint: disable=unused-variable
-        dic = json.loads(line)
-        for ges in self.num_dic:
-          if dic["gesture"] == ges:
-            self.num_dic[ges] += 1
-    train_data_0, valid_data_0, test_data_100 = split_data(self.data, 0, 0)
-    train_data_50, valid_data_50, test_data_0 = split_data(self.data, 0.5, 0.5)
-    train_data_60, valid_data_20, test_data_20 = split_data(self.data, 0.6, 0.2)
-    len_60 = int(self.num_dic["wing"] * 0.6) + int(
-        self.num_dic["ring"] * 0.6) + int(self.num_dic["slope"] * 0.6) + int(
-            self.num_dic["negative"] * 0.6)
-    len_50 = int(self.num_dic["wing"] * 0.5) + int(
-        self.num_dic["ring"] * 0.5) + int(self.num_dic["slope"] * 0.5) + int(
-            self.num_dic["negative"] * 0.5)
-    len_20 = int(self.num_dic["wing"] * 0.2) + int(
-        self.num_dic["ring"] * 0.2) + int(self.num_dic["slope"] * 0.2) + int(
-            self.num_dic["negative"] * 0.2)
-    self.assertEqual(len(train_data_0), 0)
-    self.assertEqual(len(train_data_50), len_50)
-    self.assertEqual(len(train_data_60), len_60)
-    self.assertEqual(len(valid_data_0), 0)
-    self.assertEqual(len(valid_data_50), len_50)
-    self.assertEqual(len(valid_data_20), len_20)
-    self.assertEqual(len(test_data_100), self.num)
-    self.assertEqual(len(test_data_0), (self.num - 2 * len_50))
-    self.assertEqual(len(test_data_20), (self.num - len_60 - len_20))
+    def test_split_data_distribution(self):
+        """ 60% train, 20% valid, 20% test. """
+        split_data(self.config, raw_root=self.raw_root, train_ratio=0.6, valid_ratio=0.2)
 
+        for label in self.labels:
+            train_files = os.listdir(os.path.join(self.config.train_path, label))
+            valid_files = os.listdir(os.path.join(self.config.valid_path, label))
+            test_files = os.listdir(os.path.join(self.config.test_path, label))
+
+            self.assertEqual(len(train_files), 6)
+            self.assertEqual(len(valid_files), 2)
+            self.assertEqual(len(test_files), 2)
+
+    def test_split_data_empty_class_results_in_zero_output_files(self):
+        # Add an empty class folder
+        empty_label = "empty"
+        os.makedirs(os.path.join(self.raw_root, empty_label), exist_ok=True)
+        
+        # Update config to include empty label
+        new_labels = self.labels + [empty_label]
+        self.config.labels = new_labels
+
+        split_data(self.config, raw_root=self.raw_root, train_ratio=0.6, valid_ratio=0.2)
+
+        train_files = os.listdir(os.path.join(self.config.train_path, empty_label))
+        self.assertEqual(len(train_files), 0)
+
+    def test_split_data_missing_folder_does_not_crash_and_processes_existing_classes(self):
+        # Label in config but missing in raw_root
+        missing_label = "missing"
+        self.config.labels = self.labels + [missing_label]
+
+        # Should not crash, just print warning
+        split_data(self.config, raw_root=self.raw_root, train_ratio=0.6, valid_ratio=0.2)
+        
+        # Check that it still split the other classes correctly
+        for label in self.labels:
+            train_files = os.listdir(os.path.join(self.config.train_path, label))
+            self.assertEqual(len(train_files), 6)
 
 if __name__ == "__main__":
-  unittest.main()
+    unittest.main()
