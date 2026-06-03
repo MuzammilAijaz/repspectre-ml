@@ -23,19 +23,30 @@ import random
 import numpy as np
 
 
-def time_wrapping(molecule, denominator, data):
+def _time_wrapping(molecule, denominator, data):
   """Generate (molecule/denominator)x speed data.
 
-  molecule and denominator define speed ratio
+  where molecule and denominator define the speed ratio.
 
   If molecule > denominator → the sequence gets faster (fewer steps = compression).
   If molecule < denominator → the sequence gets slower (more steps = stretching).
 
-  Note : Time Warping streches or compresses data.
+  Return
+  ------
+   - Time warped data with same column size but different row sizes 
+   based on molecule/denominator.
+   - Returns None if sequence is too short.
   """
+  assert(molecule > 0)
+  assert(denominator >= 0)
 
   # creates 2D array with 0s
   rows = (int(len(data) / molecule) - 1) * denominator
+  
+  # if the sequence is not long enough to time warp
+  if (rows <= 0):
+    return None
+
   columns = len(data[0])
   tmp_data = [[0 for i in range(columns)] for j in range(rows)]
 
@@ -68,8 +79,8 @@ def augment_data(original_data, original_label):
       new_label.append(label)
 
     # Random noise - to simulate natural movements which are often different
-    tmp_data = [[0 for i in range(len(data[0]))] for j in range(len(data))]
     for num in range(5):
+      tmp_data = [[0 for i in range(len(data[0]))] for j in range(len(data))]
       for i in range(len(tmp_data)):
         for j in range(len(tmp_data[i])):
           tmp_data[i][j] = data[i][j] + 5 * random.random()
@@ -79,8 +90,10 @@ def augment_data(original_data, original_label):
     # Time warping - to take into account the speed of the motion.
     fractions = [(3, 2), (5, 3), (2, 3), (3, 4), (9, 5), (6, 5), (4, 5)]
     for molecule, denominator in fractions:
-      new_data.append(time_wrapping(molecule, denominator, data))
-      new_label.append(label)
+      warped = _time_wrapping(molecule, denominator, data)
+      if warped is not None:
+        new_data.append(warped)
+        new_label.append(label)
 
     # Movement amplification - to take into account the degree of motion 
     for molecule, denominator in fractions:
