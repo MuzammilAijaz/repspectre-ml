@@ -9,31 +9,11 @@ import os
 import sqlite3
 import pandas as pd
 from lift_ml.utils.rep_detection import *
+from lift_ml.data.ingestion import 
+    get_all_sessions_data, get_column_names, get_all_type_sessions_data
 
 SESSION_DURATION = 10 # 10 seconds
 DETECTION_DURATION = 0.8 # refer to rep_detection for this.
-
-# Helper function to fetch all sessions for a noise type
-def get_all_sessions_data(db_path, classType, subtype):
-    conn = sqlite3.connect(db_path)
-    
-    # All session IDs for the noise type
-    session_ids = pd.read_sql(
-        f"SELECT sessionId FROM session WHERE {classType} = '{subtype}' ORDER BY sessionId ASC;",
-        conn
-    )['sessionId'].tolist()
-    
-    # Fetch rawdata for each session
-    sessions_data = {}
-    for sid in session_ids:
-        df = pd.read_sql(
-            f"SELECT ax, ay, az, gx, gy, gz FROM rawdata WHERE sessionId = {sid};",
-            conn
-        )
-        sessions_data[sid] = df
-    
-    conn.close()
-    return sessions_data
 
 def save_detected_reps_to_csv(sessions_dict, target_folder, prefix, fs, axis='ay'):
     """
@@ -64,41 +44,6 @@ def save_detected_reps_to_csv(sessions_dict, target_folder, prefix, fs, axis='ay
         path = os.path.join(target_folder, filename)
         rep_df.to_csv(path, index=False)
         print("Saved detected rep:", path)
-
-def get_column_names(db_path, column_name, table_name):
-    conn = sqlite3.connect(db_path)
-    
-    df = pd.read_sql(f"SELECT DISTINCT {column_name} FROM {table_name};", conn)
-    values_list = df[column_name].tolist()
-    
-    conn.close()
-    return values_list
-
-def get_all_type_sessions_data(db_path, classTypes, subTypes):
-    conn = sqlite3.connect(db_path)
-
-    sessions_data_for_each_type = [] 
-
-    for classType in classTypes:
-        for subType in subTypes:
-            # All session IDs for the noise type
-            session_ids = pd.read_sql(
-                f"SELECT sessionId FROM session WHERE {classType} = '{subType}' ORDER BY sessionId ASC;",
-                conn
-            )['sessionId'].tolist()
-            
-            # Fetch rawdata for each session
-            sessions_data = {}
-            for sid in session_ids:
-                df = pd.read_sql(
-                    f"SELECT ax, ay, az, gx, gy, gz FROM rawdata WHERE sessionId = {sid};",
-                    conn
-                )
-                sessions_data[sid] = df
-                sessions_data_for_each_type.append(sessions_data)
-    
-    conn.close()
-    return sessions_data_for_each_type # list of dictionary
 
 def organize_sql_data(db_path, output_root, barbell_type="FLOOR_PULL", 
                       axes=['ax', 'ay', 'az', 'gx', 'gy', 'gz']):
