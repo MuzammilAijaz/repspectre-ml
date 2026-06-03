@@ -7,28 +7,47 @@
 
 import sqlite3
 import pandas as pd
+from dataclasses import dataclass, field
+from typing import Dict, Any, Optional, List
 
-def get_all_sessions_data(db_path, classType, subtype):
+@dataclass
+class Session:
+    """Represents a single recorded session with sensor data and metadata."""
+    session_id: int
+    sensor_data: pd.DataFrame
+    motion_state: Optional[str] = None
+    sensor_data_format: str = "RAW"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+def get_all_sessions_data(db_path, classType, subtype) -> List[Session]:
     """Fetch all session raw data for a specific metadata filter."""
     conn = sqlite3.connect(db_path)
     
-    # All session IDs for the given type
-    session_ids = pd.read_sql(
-        f"SELECT sessionId FROM session WHERE {classType} = '{subtype}' ORDER BY sessionId ASC;",
-        conn
-    )['sessionId'].tolist()
+    # Fetch session IDs and any relevant metadata
+    query = f"SELECT * FROM session WHERE {classType} = '{subtype}' ORDER BY sessionId ASC;"
+    session_meta = pd.read_sql(query, conn)
     
-    # Fetch rawdata for each session
-    sessions_data = {}
-    for sid in session_ids:
+    sessions = []
+    for _, meta_row in session_meta.iterrows():
+        sid = int(meta_row['sessionId'])
         df = pd.read_sql(
             f"SELECT ax, ay, az, gx, gy, gz FROM rawdata WHERE sessionId = {sid};",
             conn
         )
-        sessions_data[sid] = df
+        
+        # Convert row to metadata dict
+        metadata = meta_row.to_dict()
+        motion_state = metadata.get('liftCategory') or metadata.get('noise')
+        
+        sessions.append(Session(
+            session_id=sid,
+            sensor_data=df,
+            motion_state=motion_state,
+            metadata=metadata
+        ))
     
     conn.close()
-    return sessions_data
+    return sessions
 
 def get_column_names(db_path, column_name, table_name):
     """Fetch distinct values from a metadata column."""
