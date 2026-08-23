@@ -4,9 +4,9 @@
 #  Split raw CSV sensor data into train/validation/test sets.
 # -----------------------------------------------------------------------------
 #  This script organizes time-series CSV files stored in a class-based
-#  directory structure and partitions them into reproducible dataset splits 
+#  directory structure and partitions them into reproducible dataset splits
 #  for machine learning.
-#  
+#
 #      Input structure:              |           Output structure:
 #      ---------------                           ----------------
 #          raw_data/                 |               data/
@@ -32,12 +32,13 @@
 import os
 import random
 import shutil
-from typing import List, Dict
+
 from lift_ml.config import DataConfig
 
-def list_files(root_dir: str, classes: List[str]) -> Dict[str, List[str]]:
+
+def list_files(root_dir: str, classes: list[str]) -> dict[str, list[str]]:
     """Load CSV files grouped by class labels."""
-    data = {cls: [] for cls in classes}
+    data: dict[str, list[str]] = {cls: [] for cls in classes}
 
     for cls in classes:
         class_dir = os.path.join(root_dir, cls)
@@ -54,7 +55,9 @@ def list_files(root_dir: str, classes: List[str]) -> Dict[str, List[str]]:
     return data
 
 
-def split_one_class(file_list: List[str], train_ratio: float, valid_ratio: float):
+def split_one_class(
+    file_list: list[str], train_ratio: float, valid_ratio: float
+) -> tuple[list[str], list[str], list[str]]:
     """Split list into train, valid, and test."""
     random.shuffle(file_list)
     total = len(file_list)
@@ -64,12 +67,12 @@ def split_one_class(file_list: List[str], train_ratio: float, valid_ratio: float
 
     train = file_list[:train_end]
     valid = file_list[train_end:valid_end]
-    test  = file_list[valid_end:]
+    test = file_list[valid_end:]
 
     return train, valid, test
 
 
-def copy_files(file_list: List[str], dst_dir: str):
+def copy_files(file_list: list[str], dst_dir: str) -> None:
     os.makedirs(dst_dir, exist_ok=True)
     for f in file_list:
         shutil.copy(f, dst_dir)
@@ -79,11 +82,9 @@ def split_data(
     config: DataConfig,
     raw_root: str = "raw_data",
     train_ratio: float = 0.6,
-    valid_ratio: float = 0.2
-):
-    """
-    Splits data from raw_root into train, valid, and test directories defined in config.
-    """
+    valid_ratio: float = 0.2,
+) -> None:
+    """Splits data from raw_root into train, valid, and test directories defined in config."""
     data = list_files(raw_root, config.labels)
 
     for cls in config.labels:
@@ -104,20 +105,19 @@ def split_data(
 
 if __name__ == "__main__":
     # Example usage (would typically be called from a higher level script or CLI)
-    from lift_ml.config import Config
-    # Assuming a default config exists or providing a dummy one
     dummy_config = DataConfig(
         train_path="data/train",
         valid_path="data/valid",
         test_path="data/test",
-        labels=["barbell", "none"]
+        labels=["barbell", "none"],
     )
     random.seed(42)  # reproducibility
     split_data(
         config=dummy_config,
         raw_root="raw_data",
         train_ratio=0.6,
-        valid_ratio=0.2
+        valid_ratio=0.2,
     )
 
     print("\nDONE — Data split complete!")
+

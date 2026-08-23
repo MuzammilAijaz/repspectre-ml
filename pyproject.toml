@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "jupyterlab>=4.5.7",
+    "matplotlib>=3.11.0",
     "numpy>=2.4.6",
     "pandas>=3.0.3",
     "pydantic>=2.13.4",
@@ -19,5 +20,61 @@ dependencies = [
     "tensorboard>=2.20.0",
     "tensorflow>=2.21.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "basedpyright>=1.28.0",
+]
+
+#==============================================================================
+# | Configuration
+#==============================================================================
+
+# Pytest
+#------------------------------------------------------------------------------
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+# Ruff
+#------------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py313"
+line-length    = 100
+src            = ["src", "tools", "tests", "debug_scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking (move pure-type imports into TYPE_CHECKING)
+    "ANN",  # flake8-annotations (enforce type annotations)
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["lift_ml"]
+
+[tool.ruff.format]
+quote-style              = "double"
+indent-style             = "space"
+skip-magic-trailing-comma = false
+
+# Basedpyright
+#------------------------------------------------------------------------------
+[tool.basedpyright]
+pythonVersion        = "3.13"
+venvPath             = "."
+venv                 = ".venv"
+include              = ["src", "tools", "tests", "debug_scripts"]
+typeCheckingMode     = "strict"
+
+# numpy / pandas ship inline stubs – tell pyright to use them
+useLibraryCodeForTypes   = true
+reportMissingTypeStubs   = false   # suppress noise for stubs-less third-party libs

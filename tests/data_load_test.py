@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,39 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-# pylint: disable=g-bad-import-order
+
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportAttributeAccessIssue=false
 
 """Test for data_load.py."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import unittest
 import os
 import shutil
+import sys
+import unittest
+
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from lift_ml.data.loader import DataLoader
 from lift_ml.config import DataConfig
-
-import sys
+from lift_ml.data.loader import DataLoader
 
 print("PYTHON:", sys.executable)
 print("VERSION:", sys.version)
 
 try:
     import pandas
+
     print("PANDAS:", pandas.__file__)
 except Exception as e:
     print("PANDAS IMPORT ERROR:", repr(e))
     raise
 
-class TestLoad(unittest.TestCase):
 
-    def setUp(self):
+class TestLoad(unittest.TestCase):
+    def setUp(self) -> None:
         self.base_dir = "test_data_loader"
         self.train_path = os.path.join(self.base_dir, "train")
         self.valid_path = os.path.join(self.base_dir, "valid")
@@ -73,16 +70,16 @@ class TestLoad(unittest.TestCase):
             test_path=self.test_path,
             seq_length=5,
             data_dimension=2,
-            labels=["barbell", "none"]
+            labels=["barbell", "none"],
         )
 
         self.loader = DataLoader(self.config, augment_train=False)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if os.path.exists(self.base_dir):
             shutil.rmtree(self.base_dir)
 
-    def test_data_loader_loads_data_and_preserves_label_alignment(self):
+    def test_data_loader_loads_data_and_preserves_label_alignment(self) -> None:
         self.assertIsInstance(self.loader.train_data, list)
         self.assertIsInstance(self.loader.train_label, list)
         self.assertIsInstance(self.loader.valid_data, list)
@@ -96,12 +93,19 @@ class TestLoad(unittest.TestCase):
         self.assertEqual(self.loader.test_len, len(self.loader.test_data))
         self.assertEqual(self.loader.test_len, len(self.loader.test_label))
 
-    def test_pad_preserves_last_value_during_sequence_expansion(self):
+    def test_pad_preserves_last_value_during_sequence_expansion(self) -> None:
         original_data1 = np.array([[2, 3], [1, 1]])
         expected_data1_0 = [[2, 3], [2, 3], [2, 3], [2, 3], [1, 1]]
         expected_data1_1 = [[2, 3], [1, 1], [1, 1], [1, 1], [1, 1]]
-        original_data2 = np.array([[-2, 3], [-77, -681], [5, 6], [9, -7], [22, 3333],
-                                   [9, 99], [-100, 0]])
+        original_data2 = np.array([
+            [-2, 3],
+            [-77, -681],
+            [5, 6],
+            [9, -7],
+            [22, 3333],
+            [9, 99],
+            [-100, 0],
+        ])
         expected_data2 = [[-2, 3], [-77, -681], [5, 6], [9, -7], [22, 3333]]
         padding_data1 = self.loader.pad(original_data1, seq_length=5, dim=2)
         padding_data2 = self.loader.pad(original_data2, seq_length=5, dim=2)
@@ -109,30 +113,29 @@ class TestLoad(unittest.TestCase):
         # Check padding with noise allowance
         for i in range(len(padding_data1[0])):
             for j in range(len(padding_data1[0][0])):
-                self.assertLess(
-                        abs(padding_data1[0][i][j] - expected_data1_0[i][j]),
-                        10.001)
+                self.assertLess(abs(padding_data1[0][i][j] - expected_data1_0[i][j]), 10.001)
         for i in range(len(padding_data1[1])):
             for j in range(len(padding_data1[1][0])):
-                self.assertLess(
-                        abs(padding_data1[1][i][j] - expected_data1_1[i][j]),
-                        10.001)
+                self.assertLess(abs(padding_data1[1][i][j] - expected_data1_1[i][j]), 10.001)
 
         np.testing.assert_array_equal(padding_data2[0], expected_data2)
         np.testing.assert_array_equal(padding_data2[1], expected_data2)
 
-    def test_format_converts_datasets_and_maps_labels_to_ids(self):
+    def test_format_converts_datasets_and_maps_labels_to_ids(self) -> None:
         self.loader.format()
         expected_train_label = int(self.loader.label2id[self.loader.train_label[0]])
         expected_valid_label = int(self.loader.label2id[self.loader.valid_label[0]])
         expected_test_label = int(self.loader.label2id[self.loader.test_label[0]])
 
         # Get first batch
-        for feature, label in self.loader.train_data.take(1):
+        format_train_label = None
+        for _feature, label in self.loader.train_data.take(1):
             format_train_label = label.numpy()
-        for feature, label in self.loader.valid_data.take(1):
+        format_valid_label = None
+        for _feature, label in self.loader.valid_data.take(1):
             format_valid_label = label.numpy()
-        for feature, label in self.loader.test_data.take(1):
+        format_test_label = None
+        for _feature, label in self.loader.test_data.take(1):
             format_test_label = label.numpy()
 
         self.assertEqual(expected_train_label, format_train_label)
@@ -142,14 +145,12 @@ class TestLoad(unittest.TestCase):
         self.assertIsInstance(self.loader.valid_data, tf.data.Dataset)
         self.assertIsInstance(self.loader.test_data, tf.data.Dataset)
 
-    def test_load_csv_folder_loads_correctly(self):
+    def test_load_csv_folder_loads_correctly(self) -> None:
         """Loads CSV files and matches labels."""
-
         # Use the training path for testing
         data, labels, length = self.loader.load_csv_folder(self.train_path)
 
         # Expecting 2 files per class
-        expected_length = 2  # we created 1 CSV per class in setUp
         self.assertEqual(length, len(labels))
         self.assertEqual(length, len(data))
 
@@ -162,9 +163,8 @@ class TestLoad(unittest.TestCase):
             self.assertIsInstance(arr, np.ndarray)
             self.assertEqual(arr.shape[1], self.config.data_dimension)
 
-    def test_load_csv_folder_skips_invalid_files(self):
+    def test_load_csv_folder_skips_invalid_files(self) -> None:
         """Skips non-CSV or incorrectly formatted files."""
-
         # Create an invalid CSV file (wrong dimension)
         bad_df = pd.DataFrame(np.random.rand(5, 3), columns=["a", "b", "c"])
         bad_path = os.path.join(self.train_path, "barbell", "bad_data.csv")
@@ -173,18 +173,19 @@ class TestLoad(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.loader.load_csv_folder(self.train_path)
 
-    def test_load_csv_folder_skips_unknown_labels(self):
+    def test_load_csv_folder_skips_unknown_labels(self) -> None:
         """Warns and skips folders not in config.labels."""
-
         unknown_dir = os.path.join(self.base_dir, "train", "unknown_label")
         os.makedirs(unknown_dir, exist_ok=True)
         df = pd.DataFrame(np.random.rand(5, self.config.data_dimension), columns=["ax", "ay"])
         df.to_csv(os.path.join(unknown_dir, "file.csv"), index=False)
 
         # Should load existing valid data and skip unknown folder without crashing
-        data, labels, length = self.loader.load_csv_folder(self.train_path)
+        _data, labels, _length = self.loader.load_csv_folder(self.train_path)
         for label in labels:
             self.assertIn(label, self.config.labels)
 
+
 if __name__ == "__main__":
     unittest.main()
+
