@@ -1,8 +1,12 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportMissingTypeStubs=false
+
+
 from lift_ml.config import Config
 from lift_ml.models.cnn import build_cnn
 from lift_ml.models.lstm import build_lstm
 
-def get_model(config: Config):
+
+def get_model(config: Config) -> object:
     model_type = config.model.type.upper()
     seq_length = config.data.seq_length
     dimension = config.data.data_dimension
@@ -15,3 +19,4 @@ def get_model(config: Config):
         return build_lstm(seq_length, dimension, num_classes, batch_size)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
+
