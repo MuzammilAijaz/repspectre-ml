@@ -8,14 +8,14 @@ from numpy.typing import NDArray
 
 @dataclass
 class RepDetectionResult:
-    start_idx: int | None
-    end_idx: int | None
+    start_idx: int
+    end_idx: int
     signal: NDArray[np.float64]
     baseline: float
     start_threshold: float
     end_threshold: float
-    model_start_idx: int | None
-    model_end_idx: int | None
+    model_start_idx: int
+    model_end_idx: int
 
 def mad(x: NDArray[np.float64]) -> np.float64:
     """Median absolute deviation."""
@@ -31,10 +31,14 @@ def detect_rep_axis(
     k_end: float = 2.0,     # multiplier for end threshold
     smooth_window: int = 5,
     min_duration: float = 0.15,
-) -> RepDetectionResult:
+) -> RepDetectionResult | None:
     """
     Detect start and end index (samples) of first rep on a chosen axis.
     Also returns model input start and end indices based on a pre/post window.
+
+    WARN: beware, vibe coded algorithm
+    TODO: implement tests, or a better algorithm
+
     """
     series = cast("pd.Series", df[axis])
     ys: NDArray[np.float64] = np.asarray(series, dtype=np.float64)
@@ -75,16 +79,7 @@ def detect_rep_axis(
             break
 
     if start_idx is None:
-        return RepDetectionResult(
-            start_idx=None,
-            end_idx=None,
-            signal=ys_s,
-            baseline=base_med,
-            start_threshold=start_th,
-            end_threshold=end_th,
-            model_start_idx=None,
-            model_end_idx=None,
-        )
+        return None
 
     # 5) detect end
     below_end: NDArray[np.bool_] = dist < end_th
