@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+
 @dataclass
 class RepDetectionResult:
     start_idx: int | None
@@ -116,3 +117,4 @@ def detect_rep_axis(
         model_start_idx=model_start_idx,
         model_end_idx=model_end_idx,
     )
+
