@@ -1,8 +1,20 @@
+from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+
+@dataclass
+class RepDetectionResult:
+    start_idx: int | None
+    end_idx: int | None
+    signal: NDArray[np.float64]
+    baseline: float
+    start_threshold: float
+    end_threshold: float
+    model_start_idx: int | None
+    model_end_idx: int | None
 
 def mad(x: NDArray[np.float64]) -> np.float64:
     """Median absolute deviation."""
@@ -18,18 +30,10 @@ def detect_rep_axis(
     k_end: float = 2.0,     # multiplier for end threshold
     smooth_window: int = 5,
     min_duration: float = 0.15,
-) -> tuple[
-    int | None,
-    int | None,
-    NDArray[np.float64],
-    float,
-    float,
-    float,
-    int | None,
-    int | None,
-]:
-    """Detect start and end index (samples) of first rep on a chosen axis.
-       Also returns model input start and end indices based on a pre/post window.
+) -> RepDetectionResult:
+    """
+    Detect start and end index (samples) of first rep on a chosen axis.
+    Also returns model input start and end indices based on a pre/post window.
     """
     series = cast("pd.Series", df[axis])
     ys: NDArray[np.float64] = np.asarray(series, dtype=np.float64)
@@ -70,7 +74,16 @@ def detect_rep_axis(
             break
 
     if start_idx is None:
-        return None, None, ys_s, base_med, start_th, end_th, None, None
+        return RepDetectionResult(
+            start_idx=None,
+            end_idx=None,
+            signal=ys_s,
+            baseline=base_med,
+            start_threshold=start_th,
+            end_threshold=end_th,
+            model_start_idx=None,
+            model_end_idx=None,
+        )
 
     # 5) detect end
     below_end: NDArray[np.bool_] = dist < end_th
@@ -93,4 +106,13 @@ def detect_rep_axis(
     model_start_idx = max(0, start_idx - int(pre_sec * fs))
     model_end_idx   = min(len(ys_s) - 1, start_idx + int(post_sec * fs))
 
-    return start_idx, end_idx, ys_s, base_med, start_th, end_th, model_start_idx, model_end_idx
+    return RepDetectionResult(
+        start_idx=start_idx,
+        end_idx=end_idx,
+        signal=ys_s,
+        baseline=base_med,
+        start_threshold=start_th,
+        end_threshold=end_th,
+        model_start_idx=model_start_idx,
+        model_end_idx=model_end_idx,
+    )
