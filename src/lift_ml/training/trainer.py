@@ -1,48 +1,52 @@
-import os
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportAttributeAccessIssue=false, reportArgumentType=false
+
 import datetime
+import os
+
 import numpy as np
 import tensorflow as tf
-from typing import Tuple
 
 from lift_ml.config import Config
 from lift_ml.data.loader import DataLoader
 from lift_ml.models.model_builder import get_model
 
+
 class Trainer:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.config = config
-        self.logdir = os.path.join("logs/scalars/", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        now_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.logdir = os.path.join("logs/scalars/", now_str)
         self.tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=self.logdir)
 
-    def reshape_function(self, data, label):
+    def reshape_function(self, data: object, label: object) -> tuple[object, object]:
         """For CNN: reshape to (seq_length, dimension, 1)"""
         if self.config.model.type.upper() == "CNN":
             data = tf.reshape(data, [-1, self.config.data.data_dimension, 1])
         return data, label
 
-    def calculate_model_size(self, model):
+    def calculate_model_size(self, model: object) -> None:
         model.summary()
         var_sizes = [
-            np.prod(list(map(int, v.shape))) * tf.dtypes.as_dtype(v.dtype).size
+            int(np.prod(list(map(int, v.shape)))) * tf.dtypes.as_dtype(v.dtype).size
             for v in model.trainable_variables
         ]
         print("Model size: %.2f KB" % (sum(var_sizes) / 1024.0))
 
-    def load_data(self, augment: bool = False):
+    def load_data(self, augment: bool = False) -> DataLoader:
         loader = DataLoader(self.config.data, augment_train=augment)
         loader.format()
-        
+
         # Shuffle
         loader.train_data = loader.train_data.shuffle(buffer_size=loader.train_len)
         loader.valid_data = loader.valid_data.shuffle(buffer_size=loader.valid_len)
         loader.test_data = loader.test_data.shuffle(buffer_size=loader.test_len)
-        
+
         return loader
 
-    def train(self):
+    def train(self) -> None:
         print("Loading data...")
         loader = self.load_data(augment=True)
-        
+
         print("Building model...")
         model = get_model(self.config)
         self.calculate_model_size(model)
@@ -50,7 +54,7 @@ class Trainer:
         model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=self.config.model.learning_rate),
             loss="sparse_categorical_crossentropy",
-            metrics=["accuracy"]
+            metrics=["accuracy"],
         )
 
         train_ds = loader.train_data.map(self.reshape_function)
@@ -71,7 +75,7 @@ class Trainer:
             validation_data=valid_ds,
             steps_per_epoch=steps_per_epoch,
             validation_steps=validation_steps,
-            callbacks=[self.tensorboard_callback]
+            callbacks=[self.tensorboard_callback],
         )
 
         # Evaluate
@@ -81,10 +85,10 @@ class Trainer:
 
         self.export_model(model)
 
-    def export_model(self, model):
+    def export_model(self, model: object) -> None:
         output_dir = self.config.output_dir
         os.makedirs(output_dir, exist_ok=True)
-        
+
         keras_path = os.path.join(output_dir, "model.keras")
         model.save(keras_path)
         print(f"Saved Keras model to {keras_path}")
@@ -106,8 +110,10 @@ class Trainer:
             f.write(tflite_model_q)
         print(f"Saved Quantized TFLite model to {tflite_q_path}")
 
+
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to YAML config file")
     args = parser.parse_args()
