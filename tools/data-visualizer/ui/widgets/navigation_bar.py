@@ -1,3 +1,5 @@
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false
+
 from pyqtgraph.Qt import QtWidgets
 
 
@@ -7,6 +9,7 @@ class NavigationBarWidget(QtWidgets.QWidget):
         super().__init__()
 
         layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         self.label_file = QtWidgets.QLabel()
 
@@ -17,6 +20,5 @@ class NavigationBarWidget(QtWidgets.QWidget):
         layout.addStretch()
         layout.addWidget(self.btn_prev)
         layout.addWidget(self.btn_next)
-
 
 
