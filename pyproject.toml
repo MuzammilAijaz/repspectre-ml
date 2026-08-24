@@ -26,6 +26,7 @@ dev = [
     "ruff>=0.9.0",
     "basedpyright>=1.28.0",
     "eralchemy2>=1.4.1",
+    "pre-commit>=4.6.2",
 ]
 
 #==============================================================================
@@ -42,7 +43,10 @@ pythonpath = ["src"]
 [tool.ruff]
 target-version = "py313"
 line-length    = 100
-src            = ["src", "tools", "tests", "debug_scripts"]
+src            = ["src", "tools", "tests"] # for import sorting
+extend-exclude = [ # do not perform linting
+    "debug_scripts",
+]
 
 [tool.ruff.lint]
 select = [
@@ -73,7 +77,7 @@ skip-magic-trailing-comma = false
 pythonVersion        = "3.13"
 venvPath             = "."
 venv                 = ".venv"
-include              = ["src", "tools", "tests", "debug_scripts"]
+include              = ["src", "tools", "tests"]
 typeCheckingMode     = "strict"
 
 # numpy / pandas ship inline stubs – tell pyright to use them

@@ -1,0 +1,18 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check .
+        language: system
+        pass_filenames: false
+        # Only runs if a commit touches these directories
+        files: '^(src|tools|tests)/'
+
+      - id: basedpyright
+        name: basedpyright
+        entry: uv run basedpyright
+        language: system
+        pass_filenames: false
+        # Only runs if a commit touches these directories
+        files: '^(src|tools|tests)/'
