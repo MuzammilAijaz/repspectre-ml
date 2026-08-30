@@ -10,7 +10,7 @@ from pyqtgraph.Qt import QtWidgets
 
 from ui.view.session_viewmodel import SessionViewModel
 from ui.widgets.dataset_selection import DatasetSelectionWidget
-from ui.widgets.navigation_bar import NavigationBarWidget
+from ui.widgets.navigation import NavigationWidget
 
 logger: Final = logging.getLogger("ui.windows.main_window")
 
@@ -33,7 +33,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Bottom controls layout
         bottom_layout = QtWidgets.QHBoxLayout()
         self.dataset_widget: DatasetSelectionWidget = DatasetSelectionWidget()
-        self.navigation_widget: NavigationBarWidget = NavigationBarWidget()
+        self.navigation_widget: NavigationWidget = NavigationWidget()
         bottom_layout.addWidget(self.dataset_widget)
         bottom_layout.addWidget(self.navigation_widget)
         layout.addLayout(bottom_layout)

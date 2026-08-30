@@ -3,7 +3,7 @@
 from pyqtgraph.Qt import QtWidgets
 
 
-class NavigationBarWidget(QtWidgets.QWidget):
+class NavigationWidget(QtWidgets.QWidget):
 
     def __init__(self) -> None:
         super().__init__()
