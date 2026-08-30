@@ -12,7 +12,7 @@ from ui.view.session_viewmodel import SessionViewModel
 from ui.widgets.dataset_selection import DatasetSelectionWidget
 from ui.widgets.navigation_bar import NavigationBarWidget
 
-logger: Final = logging.getLogger("visualizer.ui.main_window")
+logger: Final = logging.getLogger("ui.windows.main_window")
 
 
 class MainWindow(QtWidgets.QMainWindow):

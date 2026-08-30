@@ -7,7 +7,7 @@ from typing import Final
 from pyqtgraph.Qt import QtWidgets
 from PySide6.QtCore import Signal
 
-logger: Final = logging.getLogger("visualizer.ui.dataset_selection")
+logger: Final = logging.getLogger("ui.widgets.dataset_selection")
 
 
 class DatasetSelectionWidget(QtWidgets.QWidget):

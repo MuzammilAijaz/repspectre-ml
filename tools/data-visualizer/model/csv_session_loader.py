@@ -18,7 +18,7 @@ if str(_SRC_DIR) not in sys.path:
 from lift_ml.utils.rep_detection import RepDetectionResult, detect_rep_axis  # noqa: E402
 from lift_ml.utils.sampling import calculate_sampling_rate  # noqa: E402
 
-logger: Final = logging.getLogger("visualizer.loader")
+logger: Final = logging.getLogger("model.loader")
 
 
 @dataclass
