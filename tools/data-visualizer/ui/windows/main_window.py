@@ -1,16 +1,14 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportAttributeAccessIssue=false
 
 import logging
-from pathlib import Path
 from typing import Final
 
 import pyqtgraph as pg
 from model.csv_session_loader import CsvSessionLoader, VisualizerSession
 from pyqtgraph.Qt import QtWidgets
 
+from ui.panes.session_selector_pane import SessionSelectorPane
 from ui.view.session_viewmodel import SessionViewModel
-from ui.widgets.dataset_selection import DatasetSelectionWidget
-from ui.widgets.navigation import NavigationWidget
 
 logger: Final = logging.getLogger("ui.windows.main_window")
 
@@ -26,79 +24,60 @@ class MainWindow(QtWidgets.QMainWindow):
         central = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(central)
 
-        # Add widget
+        # Plot display widget
         self.plot_widget: pg.PlotWidget = pg.PlotWidget()
         layout.addWidget(self.plot_widget)
 
-        # Bottom controls layout
-        bottom_layout = QtWidgets.QHBoxLayout()
-        self.dataset_widget: DatasetSelectionWidget = DatasetSelectionWidget()
-        self.navigation_widget: NavigationWidget = NavigationWidget()
-        bottom_layout.addWidget(self.dataset_widget)
-        bottom_layout.addWidget(self.navigation_widget)
-        layout.addLayout(bottom_layout)
-
-        # variables
+        # Plot items
         self.region: pg.LinearRegionItem | None = None
         self.curve: pg.PlotDataItem | None = None
 
         self.setCentralWidget(central)
 
-        #
-        # REFACTOR: view should not be know about model or be responsible for orchestration
-        #
-
-        # Model Loader
+        # Model Loader & ViewModel
         self.loader = CsvSessionLoader()
-
-        # ViewModel
         self.view_model = SessionViewModel(self.loader)
 
-        # Populate datasets into dataset selection widget
+        # Bottom controls pane (encapsulates dataset dropdown & navigation buttons)
+        self.selector_pane = SessionSelectorPane(
+            self.view_model, self.loader.DATA_ROOT
+        )
+        layout.addWidget(self.selector_pane)
+
+        # Populate available datasets into selector pane
         available_datasets = self.loader.scan_available_datasets()
-        logger.info("Initializing UI with %d available dataset folders", len(available_datasets))
-        self.dataset_widget.set_available_datasets(
-            available_datasets,
-            self.loader.DATA_ROOT,
-            self.loader.current_data_dir,
+        logger.info(
+            "Initializing UI with %d available dataset folders",
+            len(available_datasets),
+        )
+        self.selector_pane.set_available_datasets(
+            available_datasets, self.loader.current_data_dir
         )
 
-        # Signals
-        self.navigation_widget.btn_next.clicked.connect(self.view_model.next_session)
-        self.navigation_widget.btn_prev.clicked.connect(self.view_model.previous_session)
-        self.dataset_widget.dataset_selected.connect(self.on_dataset_selected)
+        # Connect session rendering
         self.view_model.session_changed.connect(self.on_session_changed)
 
         # Initial render
         self.on_session_changed(self.view_model.current_session)
 
-    def on_dataset_selected(self, path: Path) -> None:
-        logger.info("Dataset selected from UI: %s", path)
-        self.dataset_widget.set_current_dataset_label(path, self.loader.DATA_ROOT)
-        self.view_model.select_dataset(path)
-
     def on_session_changed(self, session: VisualizerSession | None) -> None:
         if session is None:
             logger.warning("No session to display (session is None)")
-            self.navigation_widget.label_file.setText("[0/0]  No CSV files found")
             if self.curve is not None:
                 self.plot_widget.removeItem(self.curve)
                 self.curve = None
             self.update_region(False, 0, 0)
             return
 
-        idx_str = f"[{self.view_model.current_idx + 1}/{self.view_model.session_count}]"
-        hz_str = f" ({int(round(session.sampling_rate))} Hz)" if session.sampling_rate else ""
-        self.navigation_widget.label_file.setText(
-            f"{idx_str}  {session.path.name}{hz_str}"
-        )
-
         # Clear previous curve
         if self.curve is not None:
             self.plot_widget.removeItem(self.curve)
 
-        logger.info("Plotting session '%s' with %d data points",
-                    session.path.name, len(session.axis_data))
+        logger.info(
+            "Plotting session '%s' with %d data points",
+            session.path.name,
+            len(session.axis_data),
+        )
         self.curve = self.plot_widget.plot(session.axis_data, clickable=True)
         if self.curve is not None:
             self.curve.curve.setClickable(True)
