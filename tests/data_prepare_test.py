@@ -10,7 +10,6 @@ import pandas as pd
 
 from lift_ml.data.domain.session import create_test_session
 from lift_ml.data.prepare_dataset import (
-    calculate_sampling_rate,
     export_sessions_for_analysis,
     save_detected_rep_sessions_to_csv,
     save_noise_sessions_to_csv,
@@ -26,40 +25,6 @@ class TestPrepareDataset(unittest.TestCase):
     def tearDown(self) -> None:
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
-
-    def test_calculate_sampling_rate_from_timestamps_us(self) -> None:
-        timestamps = np.linspace(0, 1_000_000, 101, dtype=np.int64)
-        df = pd.DataFrame({"ax": np.zeros(101), "timestampUs": timestamps})
-        session = create_test_session(session_id=1, sensor_data=df)
-        fs = calculate_sampling_rate(session)
-        self.assertAlmostEqual(fs, 100.0, places=2)
-
-    def test_calculate_sampling_rate_from_metadata(self) -> None:
-        df = pd.DataFrame({"ax": np.zeros(101)})
-        session = create_test_session(
-            session_id=1,
-            sensor_data=df,
-            metadata={"startTime": 1000, "endTime": 2000},
-        )
-        fs = calculate_sampling_rate(session)
-        self.assertAlmostEqual(fs, 100.0, places=2)
-
-    def test_calculate_sampling_rate_raises_on_missing_timestamps(self) -> None:
-        df = pd.DataFrame({"ax": np.zeros(50)})
-        session = create_test_session(session_id=1, sensor_data=df)
-        with self.assertRaises(ValueError) as ctx:
-            calculate_sampling_rate(session)
-        self.assertIn("lacks both 'timestampUs'", str(ctx.exception))
-
-    def test_calculate_sampling_rate_raises_on_non_positive_duration(self) -> None:
-        df = pd.DataFrame({
-            "ax": np.zeros(5),
-            "timestampUs": [1000, 1000, 1000, 1000, 1000],
-        })
-        session = create_test_session(session_id=1, sensor_data=df)
-        with self.assertRaises(ValueError) as ctx:
-            calculate_sampling_rate(session)
-        self.assertIn("invalid duration", str(ctx.exception))
 
     def test_save_rep_sessions_to_csv_groups_by_lift_category(self) -> None:
         df = pd.DataFrame({
@@ -197,7 +162,8 @@ class TestPrepareDataset(unittest.TestCase):
 
         # Positive: FLOOR_PULL lift session
         conn.execute(
-            """INSERT INTO session (sessionId, startTime, endTime, motionState, sensorDataFormat)
+            """INSERT INTO session (sessionId, startTime, endTime, motionState,
+                                    sensorDataFormat)
                VALUES (1, 1000, 3000, 'REP_START', 'FULL_IMU_RAW');"""
         )
         conn.execute(
@@ -208,19 +174,22 @@ class TestPrepareDataset(unittest.TestCase):
         for i in range(fs * 2):
             val = 500.0 if 150 < i < 180 else 0.0
             conn.execute(
-                """INSERT INTO full_imu_raw (sessionId, ax, ay, az, gx, gy, gz, qx, qy, qz, qw, timestampUs)
+                """INSERT INTO full_imu_raw (sessionId, ax, ay, az, gx, gy,
+                                             gz, qx, qy, qz, qw, timestampUs)
                    VALUES (1, 0, ?, 0, 0, 0, 0, 0, 0, 0, 1, ?);""",
                 (val, int(i * (1_000_000 / fs))),
             )
 
         # Negative: SENSOR_DRIFT noise session
         conn.execute(
-            """INSERT INTO session (sessionId, startTime, endTime, motionState, sensorDataFormat)
+            """INSERT INTO session (sessionId, startTime, endTime, motionState,
+                                    sensorDataFormat)
                VALUES (2, 4000, 5000, 'SENSOR_DRIFT', 'FULL_IMU_RAW');"""
         )
         for i in range(50):
             conn.execute(
-                """INSERT INTO full_imu_raw (sessionId, ax, ay, az, gx, gy, gz, qx, qy, qz, qw, timestampUs)
+                """INSERT INTO full_imu_raw (sessionId, ax, ay, az, gx, gy,
+                                             gz, qx, qy, qz, qw, timestampUs)
                    VALUES (2, 0.1, 0.1, 0.98, 0, 0, 0, 0, 0, 0, 1, ?);""",
                 (int(i * (1_000_000 / fs)),),
             )

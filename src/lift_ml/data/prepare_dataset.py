@@ -26,6 +26,7 @@ if __name__ == "__main__":
 from lift_ml.data.database.repository.session_repository import SessionRepository
 from lift_ml.data.domain.session import Session
 from lift_ml.utils.rep_detection import RepDetectionResult, detect_rep_axis
+from lift_ml.utils.sampling import calculate_sampling_rate
 
 logger: Final = logging.getLogger(__name__)
 
@@ -49,62 +50,6 @@ def get_session_motion_state(session: Session) -> str:
     if session.motion_state:
         return str(session.motion_state)
     return "UNKNOWN"
-
-
-def calculate_sampling_rate(session: Session) -> float:
-    """Calculates the exact sampling rate (Hz) from session timestamps.
-
-    Prioritizes 'timestampUs' in the sensor dataframe, and falls back to session
-    metadata 'startTime' and 'endTime'.
-
-    Raises:
-        ValueError: If timestamps are missing, duration is non-positive, or sampling
-                    rate cannot be accurately determined.
-    """
-    df = session.sensor_data
-    if len(df) < 2:
-        raise ValueError(
-            f"Session {session.session_id} has fewer than 2 samples ({len(df)} samples). "
-            "Cannot calculate sampling rate."
-        )
-
-    if "timestampUs" in df.columns:
-        start_us = float(df["timestampUs"].iloc[0])
-        end_us = float(df["timestampUs"].iloc[-1])
-        duration_s = (end_us - start_us) / 1_000_000.0
-        if duration_s <= 0:
-            raise ValueError(
-                f"Session {session.session_id} has invalid duration from 'timestampUs': "
-                f"start={start_us} us, end={end_us} us (duration={duration_s} s). "
-                "Timestamps must be strictly positive and monotonic."
-            )
-        fs = (len(df) - 1) / duration_s
-        if fs <= 0:
-            raise ValueError(
-                f"Session {session.session_id} has calculated non-positive sampling rate: {fs} Hz."
-            )
-        return fs
-
-    start_time = session.metadata.get("startTime")
-    end_time = session.metadata.get("endTime")
-    if start_time is not None and end_time is not None:
-        duration_s = (float(end_time) - float(start_time)) / 1000.0
-        if duration_s <= 0:
-            raise ValueError(
-                f"Session {session.session_id} has invalid duration from metadata: "
-                f"startTime={start_time}, endTime={end_time} (duration={duration_s} s)."
-            )
-        fs = (len(df) - 1) / duration_s
-        if fs <= 0:
-            raise ValueError(
-                f"Session {session.session_id} has calculated non-positive sampling rate: {fs} Hz."
-            )
-        return fs
-
-    raise ValueError(
-        f"Session {session.session_id} lacks both 'timestampUs' and 'startTime'/'endTime' "
-        "metadata required to compute the sampling rate."
-    )
 
 
 def save_rep_sessions_to_csv(
@@ -167,7 +112,7 @@ def save_detected_rep_sessions_to_csv(
         if df.empty:
             continue
 
-        fs = calculate_sampling_rate(session)
+        fs = calculate_sampling_rate(df)
         res: RepDetectionResult | None = detect_rep_axis(
             df,
             axis=axis,
@@ -247,7 +192,9 @@ def export_sessions_for_analysis(
     axes: list[str] | None = None,
     rep_axis: str = "ay",
 ) -> dict[str, int]:
-    """Extracts and organizes database records into rep_sessions, detected_rep_sessions, and noise_sessions folders.
+    """
+    Extracts and organizes database records into rep_sessions, detected_rep_sessions,
+    and noise_sessions folders.
 
     Output structure:
         <output_root>/
@@ -315,7 +262,8 @@ def export_sessions_for_analysis(
     }
 
     logger.info(
-        "Dataset organization complete. %d rep sessions, %d detected rep sessions, %d noise sessions.",
+        "Dataset organization complete. %d rep sessions, %d detected"
+        "rep sessions, %d noise sessions.",
         len(saved_reps),
         len(saved_detected),
         len(saved_noise),
