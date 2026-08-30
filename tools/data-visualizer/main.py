@@ -1,5 +1,6 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false
 
+import logging
 import sys
 from pathlib import Path
 
@@ -13,6 +14,14 @@ if str(VISUALIZER_DIR) not in sys.path:
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("visualizer")
+logger.info("Starting Sensor Data Visualizer from %s", VISUALIZER_DIR)
+
 import pyqtgraph as pg  # noqa: E402
 from ui.windows.main_window import MainWindow  # noqa: E402
 
@@ -22,4 +31,3 @@ window = MainWindow()
 window.show()
 
 app.exec()
-
