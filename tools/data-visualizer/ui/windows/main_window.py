@@ -1,14 +1,18 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false, reportAttributeAccessIssue=false
 
+import logging
 from pathlib import Path
+from typing import Final
 
 import pyqtgraph as pg
-from model.session_repository import Session, SessionRepository
+from model.csv_session_loader import CsvSessionLoader, VisualizerSession
 from pyqtgraph.Qt import QtWidgets
 
 from ui.view.session_viewmodel import SessionViewModel
 from ui.widgets.dataset_selection import DatasetSelectionWidget
 from ui.widgets.navigation_bar import NavigationBarWidget
+
+logger: Final = logging.getLogger("visualizer.ui.main_window")
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -44,18 +48,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # REFACTOR: view should not be know about model or be responsible for orchestration
         #
 
-        # Model
-        self.repository = SessionRepository()
+        # Model Loader
+        self.loader = CsvSessionLoader()
 
         # ViewModel
-        self.view_model = SessionViewModel(self.repository)
+        self.view_model = SessionViewModel(self.loader)
 
         # Populate datasets into dataset selection widget
-        available_datasets = self.repository.scan_available_datasets()
+        available_datasets = self.loader.scan_available_datasets()
+        logger.info("Initializing UI with %d available dataset folders", len(available_datasets))
         self.dataset_widget.set_available_datasets(
             available_datasets,
-            self.repository.DATA_ROOT,
-            self.repository.current_data_dir,
+            self.loader.DATA_ROOT,
+            self.loader.current_data_dir,
         )
 
         # Signals
@@ -68,11 +73,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.on_session_changed(self.view_model.current_session)
 
     def on_dataset_selected(self, path: Path) -> None:
-        self.dataset_widget.set_current_dataset_label(path, self.repository.DATA_ROOT)
+        logger.info("Dataset selected from UI: %s", path)
+        self.dataset_widget.set_current_dataset_label(path, self.loader.DATA_ROOT)
         self.view_model.select_dataset(path)
 
-    def on_session_changed(self, session: Session | None) -> None:
+    def on_session_changed(self, session: VisualizerSession | None) -> None:
         if session is None:
+            logger.warning("No session to display (session is None)")
             self.navigation_widget.label_file.setText("[0/0]  No CSV files found")
             if self.curve is not None:
                 self.plot_widget.removeItem(self.curve)
@@ -81,18 +88,29 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         idx_str = f"[{self.view_model.current_idx + 1}/{self.view_model.session_count}]"
-        self.navigation_widget.label_file.setText(f"{idx_str}  {session.path.name}")
+        hz_str = f" ({int(round(session.sampling_rate))} Hz)" if session.sampling_rate else ""
+        self.navigation_widget.label_file.setText(
+            f"{idx_str}  {session.path.name}{hz_str}"
+        )
 
         # Clear previous curve
         if self.curve is not None:
             self.plot_widget.removeItem(self.curve)
 
+        logger.info("Plotting session '%s' with %d data points",
+                    session.path.name, len(session.axis_data))
         self.curve = self.plot_widget.plot(session.axis_data, clickable=True)
         if self.curve is not None:
             self.curve.curve.setClickable(True)
             self.curve.setPen("w")  ## white pen
 
         if session.detection is not None:
+            logger.info(
+                "Drawing rep region for '%s': start=%d, end=%d",
+                session.path.name,
+                session.detection.model_start_idx,
+                session.detection.model_end_idx,
+            )
             self.update_region(
                 True,
                 session.detection.model_start_idx,
