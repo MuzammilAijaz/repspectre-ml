@@ -1,9 +1,13 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false
 
+import logging
 from pathlib import Path
+from typing import Final
 
 from pyqtgraph.Qt import QtWidgets
 from PySide6.QtCore import Signal
+
+logger: Final = logging.getLogger("visualizer.ui.dataset_selection")
 
 
 class DatasetSelectionWidget(QtWidgets.QWidget):
@@ -29,6 +33,14 @@ class DatasetSelectionWidget(QtWidgets.QWidget):
         """Build hierarchical nested QMenu from list of dataset directory paths."""
         self.menu_dataset.clear()
 
+        if not datasets:
+            logger.warning("No datasets available to populate selection menu.")
+            action = self.menu_dataset.addAction("No CSV folders found")
+            action.setEnabled(False)
+            return
+
+        logger.info("Populating dataset menu with %d folders", len(datasets))
+
         # Dictionary to store created sub-menus: path_tuple -> QMenu
         submenus: dict[tuple[str, ...], QtWidgets.QMenu] = {}
 
@@ -51,10 +63,16 @@ class DatasetSelectionWidget(QtWidgets.QWidget):
             leaf_name = rel_parts[-1] if rel_parts else path.name
             action = parent_menu.addAction(leaf_name)
             # Capture path in lambda default arg
-            action.triggered.connect(lambda _checked=False, p=path: self.dataset_selected.emit(p))
+            action.triggered.connect(
+                lambda _checked=False, p=path: self._on_action_triggered(p)
+            )
 
         if current_path is not None:
             self.set_current_dataset_label(current_path, data_root)
+
+    def _on_action_triggered(self, path: Path) -> None:
+        logger.info("Dataset menu action clicked: %s", path)
+        self.dataset_selected.emit(path)
 
     def set_current_dataset_label(self, current_path: Path, data_root: Path) -> None:
         """Update button label to show current dataset relative path."""
