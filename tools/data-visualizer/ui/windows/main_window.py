@@ -3,10 +3,13 @@
 import logging
 from typing import Final
 
+import numpy as np
 import pyqtgraph as pg
-from model.csv_session_loader import CsvSessionLoader, VisualizerSession
+from model.csv_session_loader import CsvSessionLoader
+from model.visualizer_session import VisualizerSession
 from pyqtgraph.Qt import QtWidgets
 
+from ui.panes.filter_selector_pane import FilterSelectionPane
 from ui.panes.session_selector_pane import SessionSelectorPane
 from ui.view.session_viewmodel import SessionViewModel
 
@@ -38,11 +41,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loader = CsvSessionLoader()
         self.view_model = SessionViewModel(self.loader)
 
+        # NOTE: order of callback "connection" matters; make sure the main window
+        # callback always called first to avoid
+
+        # Connect session rendering
+        self.view_model.session_changed.connect(self.on_session_changed)
+
         # Bottom controls pane (encapsulates dataset dropdown & navigation buttons)
         self.selector_pane = SessionSelectorPane(
             self.view_model, self.loader.DATA_ROOT
         )
         layout.addWidget(self.selector_pane)
+
+        self.filter_selector_pane = FilterSelectionPane(self.view_model)
+        layout.addWidget(self.filter_selector_pane)
+        self.filter_selector_pane.filter_applied.connect(self.on_filter_applied)
 
         # Populate available datasets into selector pane
         available_datasets = self.loader.scan_available_datasets()
@@ -54,11 +67,12 @@ class MainWindow(QtWidgets.QMainWindow):
             available_datasets, self.loader.current_data_dir
         )
 
-        # Connect session rendering
-        self.view_model.session_changed.connect(self.on_session_changed)
-
         # Initial render
         self.on_session_changed(self.view_model.current_session)
+
+    def on_filter_applied(self, filtered_data: np.ndarray) -> None:
+        if self.curve is not None:
+            self.curve.setData(filtered_data)
 
     def on_session_changed(self, session: VisualizerSession | None) -> None:
         if session is None:

@@ -2,12 +2,13 @@
 
 import logging
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, cast
 
 import numpy as np
 import pandas as pd
+
+from model.visualizer_session import VisualizerSession
 
 # Ensure src/ is on the path for lift_ml imports
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -19,18 +20,6 @@ from lift_ml.utils.rep_detection import RepDetectionResult, detect_rep_axis  # n
 from lift_ml.utils.sampling import calculate_sampling_rate  # noqa: E402
 
 logger: Final = logging.getLogger("model.loader")
-
-
-@dataclass
-class VisualizerSession:
-    """Container for visualizer session data and rep detection result."""
-
-    path: Path
-    sensor_data: pd.DataFrame
-    axis_data: np.ndarray
-    detection: RepDetectionResult | None
-    sampling_rate: float
-    session_id: int | str
 
 
 class CsvSessionLoader:
