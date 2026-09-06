@@ -4,8 +4,14 @@ import logging
 from typing import Any, Final
 
 import numpy as np
-import pandas as pd
 from model.csv_session_loader import VisualizerSession
+
+from model.filters import (
+    apply_butterworth_lowpass,
+    apply_median_filter,
+    apply_moving_average,
+    apply_savgol_filter,
+)
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.Qt import QtWidgets
 from PySide6.QtCore import Signal
@@ -13,18 +19,6 @@ from PySide6.QtCore import Signal
 from ui.view.session_viewmodel import SessionViewModel
 
 logger: Final = logging.getLogger("ui.panes.filter_selector_pane")
-
-
-def apply_moving_average(data: np.ndarray, window_size: int) -> np.ndarray:
-    """Applies centered rolling average to 1D array."""
-    if window_size <= 1 or len(data) == 0:
-        return data
-    result = (
-        pd.Series(data)
-        .rolling(window=window_size, min_periods=1, center=True)
-        .mean()
-    )
-    return np.asarray(result)
 
 
 class FilterSelectionPane(QtWidgets.QWidget):
