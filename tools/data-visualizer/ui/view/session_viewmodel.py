@@ -13,6 +13,7 @@ class SessionViewModel(QObject):
     def __init__(self, loader: CsvSessionLoader) -> None:
         super().__init__()
 
+        self.current_active_axis = "ay"
         self.loader = loader
         self.current_idx: int = 0
 

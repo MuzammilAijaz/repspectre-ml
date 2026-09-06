@@ -2,7 +2,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # Ensure src/ is on the path for lift_ml imports
@@ -20,7 +19,6 @@ class VisualizerSession:
 
     path: Path
     sensor_data: pd.DataFrame
-    axis_data: np.ndarray
     detection: RepDetectionResult | None
     sampling_rate: float
     session_id: int | str

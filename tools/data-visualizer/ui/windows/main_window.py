@@ -90,9 +90,12 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info(
             "Plotting session '%s' with %d data points",
             session.path.name,
-            len(session.axis_data),
+            len(session.sensor_data[self.view_model.current_active_axis]),
         )
-        self.curve = self.plot_widget.plot(session.axis_data, clickable=True)
+        self.curve = self.plot_widget.plot(
+            session.sensor_data[self.view_model.current_active_axis],
+            clickable=True,
+        )
         if self.curve is not None:
             self.curve.curve.setClickable(True)
             self.curve.setPen("w")  ## white pen

@@ -3,9 +3,8 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Final, cast
+from typing import Final
 
-import numpy as np
 import pandas as pd
 
 from model.visualizer_session import VisualizerSession
@@ -144,7 +143,7 @@ class CsvSessionLoader:
                 smooth_window=5,
                 min_duration=0.12,
             )
-            axis_data = cast("np.ndarray", np.asarray(df[self.axis], dtype=np.float64))
+            # axis_data = cast("np.ndarray", np.asarray(df[self.axis], dtype=np.float64))
         else:
             logger.warning(
                 "Axis '%s' not found in %s (columns: %s)",
@@ -152,7 +151,7 @@ class CsvSessionLoader:
                 path.name,
                 df.columns.tolist(),
             )
-            axis_data = np.zeros(len(df), dtype=np.float64)
+            # axis_data = np.zeros(len(df), dtype=np.float64)
 
         try:
             session_id: int | str = int(path.stem)
@@ -172,7 +171,7 @@ class CsvSessionLoader:
         return VisualizerSession(
             path=path,
             sensor_data=df,
-            axis_data=axis_data,
+            # axis_data=axis_data,
             detection=detection,
             sampling_rate=fs,
             session_id=session_id,
