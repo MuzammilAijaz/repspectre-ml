@@ -274,6 +274,6 @@ def export_sessions_for_analysis(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    db_path_val = "data/sensor-database_27-08-2026_prototyping.db"
+    db_path_val = "data/sensor-database_06-09-2026_prototype_proper.db"
     output_root_val = "./data"
     export_sessions_for_analysis(db_path_val, output_root_val)
