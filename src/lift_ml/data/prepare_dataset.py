@@ -273,7 +273,13 @@ def export_sessions_for_analysis(
 
 
 if __name__ == "__main__":
+    import argparse
+
     logging.basicConfig(level=logging.INFO)
-    db_path_val = "data/sensor-database_06-09-2026_prototype_proper.db"
-    output_root_val = "./data"
-    export_sessions_for_analysis(db_path_val, output_root_val)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--db", required=True, help="Path to SQLite database")
+    args = parser.parse_args()
+
+    output_root_val = "./data" # hardcoded path.
+    export_sessions_for_analysis(db_path=args.db, output_root=output_root_val)

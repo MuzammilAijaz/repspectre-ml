@@ -1,5 +1,7 @@
 .PHONY: help lint test db-diagram run-visualizer
 
+DATABASE_FILE ?= ./data/sensor-database_06-09-2026_prototype_proper.db
+
 # Default target when you just type 'make'
 help:
 	@echo "Available commands:"
@@ -15,8 +17,12 @@ lint:
 test:
 	uv run pytest
 
-db-diagram:
-	uv run eralchemy2 -i sqlite:///data/sensor_database.db -o docs/schema.png
+db-to-csv:
+	uv run src/lift_ml/data/prepare_dataset.py \
+	--db "$(DATABASE_FILE)"
+
+db-to-diagram:
+	uv run eralchemy2 -i sqlite:///$(DATABASE_FILE) -o docs/schema.png
 	@echo "Database diagram generated at docs/schema.png"
 
 run-visualizer:
