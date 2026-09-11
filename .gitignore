@@ -4,3 +4,6 @@ __pycache__/
 /data/noise_sessions/
 logs/scalars/
 /docs/schema.png
+/data/test
+/data/train
+/data/valid
