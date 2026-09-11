@@ -11,7 +11,8 @@ class DataConfig(BaseModel):
     test_path: str
     seq_length: int = 512
     data_dimension: int = 6
-    labels: list[str] = ["notOnBarbell", "onBarbell"]
+    axes: list[str] | None = None  # If None, slice first data_dimension columns
+    labels: list[str] = ["noise", "rep_start"]
     label_name: str = "gesture"
     data_name: str = "accel_ms2_xyz"
 
@@ -38,4 +39,3 @@ class Config(BaseModel):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             yaml.dump(self.model_dump(), f)
-

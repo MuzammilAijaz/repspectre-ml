@@ -97,15 +97,17 @@ class TestLoad(unittest.TestCase):
         original_data1 = np.array([[2, 3], [1, 1]])
         expected_data1_0 = [[2, 3], [2, 3], [2, 3], [2, 3], [1, 1]]
         expected_data1_1 = [[2, 3], [1, 1], [1, 1], [1, 1], [1, 1]]
-        original_data2 = np.array([
-            [-2, 3],
-            [-77, -681],
-            [5, 6],
-            [9, -7],
-            [22, 3333],
-            [9, 99],
-            [-100, 0],
-        ])
+        original_data2 = np.array(
+            [
+                [-2, 3],
+                [-77, -681],
+                [5, 6],
+                [9, -7],
+                [22, 3333],
+                [9, 99],
+                [-100, 0],
+            ]
+        )
         expected_data2 = [[-2, 3], [-77, -681], [5, 6], [9, -7], [22, 3333]]
         padding_data1 = self.loader.pad(original_data1, seq_length=5, dim=2)
         padding_data2 = self.loader.pad(original_data2, seq_length=5, dim=2)
@@ -164,9 +166,9 @@ class TestLoad(unittest.TestCase):
             self.assertEqual(arr.shape[1], self.config.data_dimension)
 
     def test_load_csv_folder_skips_invalid_files(self) -> None:
-        """Skips non-CSV or incorrectly formatted files."""
-        # Create an invalid CSV file (wrong dimension)
-        bad_df = pd.DataFrame(np.random.rand(5, 3), columns=["a", "b", "c"])
+        """Raises ValueError when a CSV has fewer columns than data_dimension."""
+        # Create a CSV with only 1 column — fewer than data_dimension=2
+        bad_df = pd.DataFrame(np.random.rand(5, 1), columns=["a"])
         bad_path = os.path.join(self.train_path, "barbell", "bad_data.csv")
         bad_df.to_csv(bad_path, index=False)
 
@@ -188,4 +190,3 @@ class TestLoad(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

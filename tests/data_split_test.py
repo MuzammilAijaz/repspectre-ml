@@ -32,9 +32,7 @@ class TestDataSplit(unittest.TestCase):
             os.makedirs(subcat_dir, exist_ok=True)
             for i in range(5):
                 df = pd.DataFrame(np.random.rand(5, 2), columns=["ax", "ay"])
-                df.to_csv(
-                    os.path.join(subcat_dir, f"{subcat}_{i}.csv"), index=False
-                )
+                df.to_csv(os.path.join(subcat_dir, f"{subcat}_{i}.csv"), index=False)
 
         self.labels = ["barbell", "none"]
         self.config = DataConfig(
@@ -59,9 +57,7 @@ class TestDataSplit(unittest.TestCase):
         self.assertEqual(len(files_b_flat), 0)
 
         # collapse=True collects all 10 files from both subdirs
-        files_b_collapsed = collect_class_files(
-            self.class_b_dir, collapse=True
-        )
+        files_b_collapsed = collect_class_files(self.class_b_dir, collapse=True)
         self.assertEqual(len(files_b_collapsed), 10)
 
     def test_split_data_distribution_with_collapsed_noise(self) -> None:

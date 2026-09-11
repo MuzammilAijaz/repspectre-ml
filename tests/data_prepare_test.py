@@ -27,11 +27,13 @@ class TestPrepareDataset(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_save_rep_sessions_to_csv_groups_by_lift_category(self) -> None:
-        df = pd.DataFrame({
-            "ax": np.ones(50),
-            "ay": np.zeros(50),
-            "az": np.ones(50),
-        })
+        df = pd.DataFrame(
+            {
+                "ax": np.ones(50),
+                "ay": np.zeros(50),
+                "az": np.ones(50),
+            }
+        )
         session = create_test_session(
             session_id=201,
             sensor_data=df,
@@ -53,15 +55,17 @@ class TestPrepareDataset(unittest.TestCase):
         rep_part = np.random.normal(0, 1, fs)
         rep_part[20:60] = 500.0
         ys = np.concatenate([baseline, rep_part])
-        df = pd.DataFrame({
-            "ax": np.random.normal(0, 1, len(ys)),
-            "ay": ys,
-            "az": np.random.normal(0, 1, len(ys)),
-            "gx": np.random.normal(0, 1, len(ys)),
-            "gy": np.random.normal(0, 1, len(ys)),
-            "gz": np.random.normal(0, 1, len(ys)),
-            "timestampUs": np.linspace(0, 2_000_000, len(ys), dtype=np.int64),
-        })
+        df = pd.DataFrame(
+            {
+                "ax": np.random.normal(0, 1, len(ys)),
+                "ay": ys,
+                "az": np.random.normal(0, 1, len(ys)),
+                "gx": np.random.normal(0, 1, len(ys)),
+                "gy": np.random.normal(0, 1, len(ys)),
+                "gz": np.random.normal(0, 1, len(ys)),
+                "timestampUs": np.linspace(0, 2_000_000, len(ys), dtype=np.int64),
+            }
+        )
         session = create_test_session(
             session_id=101,
             sensor_data=df,
@@ -85,11 +89,13 @@ class TestPrepareDataset(unittest.TestCase):
     def test_save_detected_rep_sessions_to_csv_skips_failed_detection(self) -> None:
         fs = 130
         timestamps = np.linspace(0, 2_000_000, fs * 2, dtype=np.int64)
-        df = pd.DataFrame({
-            "ax": np.zeros(fs * 2),
-            "ay": np.zeros(fs * 2),  # flat — detection must fail
-            "timestampUs": timestamps,
-        })
+        df = pd.DataFrame(
+            {
+                "ax": np.zeros(fs * 2),
+                "ay": np.zeros(fs * 2),  # flat — detection must fail
+                "timestampUs": timestamps,
+            }
+        )
         session = create_test_session(
             session_id=202,
             sensor_data=df,

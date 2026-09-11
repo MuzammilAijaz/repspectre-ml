@@ -8,6 +8,7 @@
 #
 #  Main responsibilities:
 #    - Load CSV files from class-based folder structure
+#    - Select specified axes or slice columns dynamically up to data_dimension
 #    - Convert raw sequences into numpy arrays
 #    - Apply optional data augmentation to training set
 #    - Pad sequences to fixed length
@@ -19,8 +20,9 @@
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false
 
+import logging
 import os
-from typing import Any
+from typing import Any, Final
 
 import numpy as np
 import pandas as pd
@@ -30,15 +32,20 @@ from numpy.typing import NDArray
 from lift_ml.config import DataConfig
 from lift_ml.data.augment import augment_data
 
+logger: Final = logging.getLogger(__name__)
+
 
 class DataLoader:
     """Loads CSV data and prepares for training."""
 
     def __init__(self, config: DataConfig, augment_train: bool = True) -> None:
         self.config = config
-        self.dim = config.data_dimension
-        self.seq_length = config.seq_length
-        self.label2id = {label: i for i, label in enumerate(config.labels)}
+        self.axes: list[str] | None = config.axes
+        # If axes are explicitly specified in config, dimension is dynamically set to len(axes)
+        self.dim = len(self.axes) if self.axes is not None else config.data_dimension
+
+        self.seq_length: int = config.seq_length
+        self.label2id: dict[str, int] = {label: i for i, label in enumerate(config.labels)}
 
         # Load CSV data
         self.train_data, self.train_label, self.train_len = self.load_csv_folder(config.train_path)
@@ -49,7 +56,7 @@ class DataLoader:
         if augment_train:
             self.train_data, self.train_label = augment_data(self.train_data, self.train_label)
             self.train_len = len(self.train_label)
-            print(f"After augmentation, train_data_length: {self.train_len}")
+            logger.info("After augmentation, train_data_length: %d", self.train_len)
 
     def load_csv_folder(self, root_path: str) -> tuple[list[Any], list[str], int]:
         """Load CSV files from a folder with subfolders for each class.
@@ -66,38 +73,63 @@ class DataLoader:
         labels: list[str] = []
 
         if not os.path.exists(root_path):
-            print(f"Warning: Path {root_path} does not exist.")
-            return data, labels, 0
+            raise FileNotFoundError(f"Dataset path does not exist: {root_path}")
 
-        for label_name in os.listdir(root_path):
+        for label_name in sorted(os.listdir(root_path)):
             class_path = os.path.join(root_path, label_name)
             if not os.path.isdir(class_path):
                 continue
 
             if label_name not in self.label2id:
-                print(
-                    f"Warning: Label {label_name} in {root_path} not found in config labels "
-                    f"{self.config.labels}. Skipping."
+                logger.warning(
+                    "Skipping unknown class folder '%s' in %s (not in config labels: %s)",
+                    label_name,
+                    root_path,
+                    self.config.labels,
                 )
                 continue
 
-            for file in os.listdir(class_path):
-                if file.endswith(".csv"):
-                    file_path = os.path.join(class_path, file)
-                    df = pd.read_csv(file_path)
+            csv_files = [f for f in sorted(os.listdir(class_path)) if f.endswith(".csv")]
+            if not csv_files:
+                raise ValueError(f"No CSV files found in class folder: {class_path}")
 
-                    # Expecting columns matching config.data_dimension
-                    if df.shape[1] != self.dim:
+            for file in csv_files:
+                file_path = os.path.join(class_path, file)
+                df = pd.read_csv(file_path)
+
+                if df.empty:
+                    raise ValueError(f"Encountered empty CSV file: {file_path}")
+
+                # Select columns based on explicit axes or slice up to self.dim
+                if self.axes is not None:
+                    missing_axes = [ax for ax in self.axes if ax not in df.columns]
+                    if missing_axes:
                         raise ValueError(
-                            f"Invalid CSV format in {file_path}. Expected {self.dim} columns, "
-                            f"got {df.shape[1]}."
+                            f"CSV {file_path} is missing specified axes {missing_axes}. "
+                            f"Available columns: {df.columns.tolist()}."
                         )
+                    df_selected = df[self.axes]
+                else:
+                    if df.shape[1] < self.dim:
+                        raise ValueError(
+                            f"Invalid CSV format in {file_path}. Expected at least {self.dim} "
+                            f"columns, got {df.shape[1]}."
+                        )
+                    df_selected = df.iloc[:, : self.dim]
 
-                    # Convert to numpy [seq_len, dim]
-                    data.append(df.to_numpy())
-                    labels.append(label_name)
+                arr = df_selected.to_numpy(dtype=np.float64)
+                if np.isnan(arr).any() or np.isinf(arr).any():
+                    raise ValueError(f"CSV {file_path} contains NaN or Inf values.")
 
-        print(f"Loaded {len(labels)} samples from {root_path}")
+                data.append(arr)
+                labels.append(label_name)
+
+        if not labels:
+            raise ValueError(
+                f"No valid CSV samples found in {root_path} for classes {self.config.labels}."
+            )
+
+        logger.info("Loaded %d samples from %s", len(labels), root_path)
         return data, labels, len(labels)
 
     def pad(
