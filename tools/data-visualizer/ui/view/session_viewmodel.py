@@ -9,11 +9,12 @@ from PySide6.QtCore import QObject, Signal
 class SessionViewModel(QObject):
     session_changed = Signal(object)  # Emits VisualizerSession | None
     dataset_changed = Signal(Path)  # Emits current Path
+    axis_changed = Signal(object)
 
     def __init__(self, loader: CsvSessionLoader) -> None:
         super().__init__()
 
-        self.current_active_axis = "ay"
+        self.current_active_axis: str = "ay"
         self.loader = loader
         self.current_idx: int = 0
 
@@ -24,6 +25,10 @@ class SessionViewModel(QObject):
         self.current_session: VisualizerSession | None = self.loader.load_session(
             self.current_idx
         )
+
+    def on_axis_changed(self, axis: str) -> None:
+        self.current_active_axis = axis
+        self.axis_changed.emit(self.current_session)
 
     def select_dataset(self, data_dir: Path) -> None:
         """Change the active dataset directory and load the first session."""

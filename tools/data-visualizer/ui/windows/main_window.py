@@ -46,6 +46,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect session rendering
         self.view_model.session_changed.connect(self.on_session_changed)
+        # WARN: maybe unnecessary
+        # call the on_session_change to update the UI for new axis
+        self.view_model.axis_changed.connect(self.on_session_changed)
 
         # Bottom controls pane (encapsulates dataset dropdown & navigation buttons)
         self.selector_pane = SessionSelectorPane(

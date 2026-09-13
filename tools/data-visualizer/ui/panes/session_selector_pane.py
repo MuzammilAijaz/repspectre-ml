@@ -1,6 +1,7 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportMissingTypeStubs=false
 
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Final
 
@@ -12,6 +13,24 @@ from ui.widgets.dataset_selection import DatasetSelectionWidget
 from ui.widgets.navigation import NavigationWidget
 
 logger: Final = logging.getLogger("ui.panes.session_selector_pane")
+
+
+
+class AxisOption(Enum):
+    AX = ("ax", "Accel X")
+    AY = ("ay", "Accel Y")
+    AZ = ("az", "Accel Z")
+    GX = ("gx", "Gyro X")
+    GY = ("gy", "Gyro Y")
+    GZ = ("gz", "Gyro Z")
+    QX = ("qx", "Qauternion X")
+    QY = ("qy", "Quaternion Y")
+    QZ = ("qz", "Quaternion Z")
+    QW = ("qw", "Quaternion W")
+
+    def __init__(self, value: str, label: str) -> None:
+        self.axis_name = value
+        self.label = label
 
 
 class SessionSelectorPane(QtWidgets.QWidget):
@@ -41,8 +60,33 @@ class SessionSelectorPane(QtWidgets.QWidget):
         self.dataset_widget.dataset_selected.connect(self._on_dataset_selected)
         self.view_model.session_changed.connect(self._on_session_changed)
 
+        # Select axis
+        self.axis_combo = QtWidgets.QComboBox()
+        self._populate_axes()
+
+        layout.addWidget(self.dataset_widget)
+        layout.addWidget(self.axis_combo)
+        layout.addWidget(self.navigation_widget)
+
+        self.axis_combo.currentIndexChanged.connect(self._on_axis_combo_changed)
+
+
         # Initial label update
         self._on_session_changed(self.view_model.current_session)
+
+    def _populate_axes(self) -> None:
+        for option in AxisOption:
+            self.axis_combo.addItem(option.label, option.axis_name)
+
+        index = self.axis_combo.findData(self.view_model.current_active_axis)
+        if index >= 0:
+            self.axis_combo.setCurrentIndex(index)
+
+    def _on_axis_combo_changed(self, index: int) -> None:
+        axis_name = self.axis_combo.itemData(index)
+        if axis_name:
+            logger.info("Axis changed: %s", axis_name)
+            self.view_model.on_axis_changed(axis_name)
 
     def set_available_datasets(
         self, datasets: list[Path], current_path: Path | None = None
