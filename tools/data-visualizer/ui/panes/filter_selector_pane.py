@@ -9,6 +9,7 @@ from model.filters import (
     apply_butterworth_lowpass,
     apply_median_filter,
     apply_moving_average,
+    apply_quaternion_gravity_removal,
     apply_savgol_filter,
 )
 from pyqtgraph.parametertree import Parameter, ParameterTree
@@ -49,6 +50,7 @@ class FilterSelectionPane(QtWidgets.QWidget):
                                 "Butterworth Lowpass",
                                 "Median Filter",
                                 "Savitzky-Golay",
+                                "Remove Gravity (using Quaternions) (only for acceleration)",
                                 ],
                             "value": "None",
                             },
@@ -188,6 +190,14 @@ class FilterSelectionPane(QtWidgets.QWidget):
                 data = apply_median_filter(data, kernel_size=window_size)
             elif f_type == "Savitzky-Golay":
                 data = apply_savgol_filter(data, window_length=window_size, polyorder=polyorder)
+            elif f_type == "Remove Gravity (using Quaternions) (only for acceleration)" \
+                    and self.view_model.current_active_axis in ['ax', 'ay', 'az']:
+                data = apply_quaternion_gravity_removal(
+                    data,
+                    quaternions=session.sensor_data[['qx', 'qy', 'qz', 'qw']].to_numpy(),
+                    axis=self.view_model.current_active_axis
+                )
+                # TODO: add warning for user if axis is not acceleration, instead of silent ignore.
 
         # Emit the fully processed signal chain
         self.filter_applied.emit(data)

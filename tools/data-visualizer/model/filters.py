@@ -5,6 +5,7 @@ from typing import Final
 
 import numpy as np
 from scipy import ndimage, signal
+from scipy.spatial.transform import Rotation
 
 logger: Final = logging.getLogger("ui.panes.filter_selector_pane")
 
@@ -61,3 +62,25 @@ def apply_savgol_filter(
         dtype=np.float64,
     )
 
+
+def apply_quaternion_gravity_removal(
+        data: np.ndarray,
+        quaternions: np.ndarray,
+        axis: str = "ay",
+        gravity_magnitude: float = 9.81,
+        ) -> np.ndarray:
+    """Remove gravity component from sensor axis data using orientation quaternions."""
+    if len(data) == 0 or len(quaternions) == 0 or len(data) != len(quaternions):
+        return data
+
+    # scipy Rotation.from_quat expects [x, y, z, w] format
+    rot = Rotation.from_quat(quaternions)
+    # Define gravity vector in the world frame (typically along the Z axis)
+    g_world = np.array([0.0, 0.0, gravity_magnitude])
+    # Rotate world gravity into the sensor's body frame
+    g_body = rot.inv().apply(g_world)
+    # Map axis string to index
+    axis_idx = {"ax": 0, "ay": 1, "az": 2}.get(axis, 1)
+
+    # Subtract gravity from the raw sensor data for the active axis
+    return np.asarray(data - g_body[:, axis_idx], dtype=np.float64)
