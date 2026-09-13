@@ -1,0 +1,29 @@
+data:
+  train_path: data/train
+  valid_path: data/valid
+  test_path: data/test
+
+  seq_length: 512
+  data_dimension: 6
+  axes:
+    - ax
+    - ay
+    - az
+    - gx
+    - gy
+    - gz
+
+  labels:
+    - noise
+    - rep_start
+
+  label_name: gesture
+  data_name: accel_ms2_xyz
+
+model:
+  type: cnn
+  epochs: 250
+  batch_size: 64
+  learning_rate: 0.001
+
+output_dir: models/export
