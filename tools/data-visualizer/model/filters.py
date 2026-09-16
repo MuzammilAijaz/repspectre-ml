@@ -66,17 +66,23 @@ def apply_savgol_filter(
 def apply_quaternion_gravity_removal(
         data: np.ndarray,
         quaternions: np.ndarray,
+        gravity_magnitude_g: float,
         axis: str = "ay",
-        gravity_magnitude: float = 9.81,
         ) -> np.ndarray:
-    """Remove gravity component from sensor axis data using orientation quaternions."""
+    """
+    Remove gravity component from sensor axis data using orientation quaternions.
+
+    NOTE: gravity_magnitude is the acceleration relative to G, where:
+        1.0G = Equal to Earth's gravity (9.81 m/s^2).
+        0.0G = Zero acceleration (weightless or perfectly balanced).
+    """
     if len(data) == 0 or len(quaternions) == 0 or len(data) != len(quaternions):
         return data
 
     # scipy Rotation.from_quat expects [x, y, z, w] format
     rot = Rotation.from_quat(quaternions)
     # Define gravity vector in the world frame (typically along the Z axis)
-    g_world = np.array([0.0, 0.0, gravity_magnitude])
+    g_world = np.array([0.0, 0.0, gravity_magnitude_g])
     # Rotate world gravity into the sensor's body frame
     g_body = rot.inv().apply(g_world)
     # Map axis string to index

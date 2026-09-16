@@ -196,7 +196,8 @@ class FilterSelectionPane(QtWidgets.QWidget):
                 data = apply_quaternion_gravity_removal(
                     data,
                     quaternions=session.sensor_data[['qx', 'qy', 'qz', 'qw']].to_numpy(),
-                    axis=self.view_model.current_active_axis
+                    gravity_magnitude_g=1.0,
+                    axis=self.view_model.current_active_axis,
                 )
                 # TODO: add warning for user if axis is not acceleration, instead of silent ignore.
 
