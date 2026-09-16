@@ -150,21 +150,11 @@ class FilterSelectionPane(QtWidgets.QWidget):
         logger.info("Session updated")
         self._run_filter()
 
-    def _run_filter(self) -> None:
-        session = self.view_model.current_session
-        if session is None:
-            return
-
-        raw_axis_data = np.asarray(session.sensor_data[self.view_model.current_active_axis])
-        enabled: bool = self.param_config["Enable Pipeline"]
-        logger.debug("Filter pipeline status: %s", enabled)
-
-        if not enabled:
-            self.filter_applied.emit(raw_axis_data.copy())
-            return
-
-        # Initialize data for the first stage and get sampling rate
-        data = raw_axis_data.copy()
+    def _apply_pipeline(
+        self, raw_data: np.ndarray, axis: str, session: VisualizerSession
+    ) -> np.ndarray:
+        """Applies configured filter pipeline stages to a single axis signal."""
+        data = raw_data.copy()
         fs: float = float(getattr(session, "sampling_rate", 100.0) or 100.0)
 
         # display 5 different filter options
@@ -191,15 +181,35 @@ class FilterSelectionPane(QtWidgets.QWidget):
                 data = apply_median_filter(data, kernel_size=window_size)
             elif f_type == "Savitzky-Golay":
                 data = apply_savgol_filter(data, window_length=window_size, polyorder=polyorder)
-            elif f_type == "Remove Gravity (using Quaternions) (only for acceleration)" \
-                    and self.view_model.current_active_axis in ['ax', 'ay', 'az']:
+            elif (
+                f_type == "Remove Gravity (using Quaternions) (only for acceleration)"
+                and axis in ["ax", "ay", "az"]
+            ):
                 data = apply_quaternion_gravity_removal(
                     data,
-                    quaternions=session.sensor_data[['qx', 'qy', 'qz', 'qw']].to_numpy(),
+                    quaternions=session.sensor_data[["qx", "qy", "qz", "qw"]].to_numpy(),
                     gravity_magnitude_g=1.0,
-                    axis=self.view_model.current_active_axis,
+                    axis=axis,
                 )
-                # TODO: add warning for user if axis is not acceleration, instead of silent ignore.
 
-        # Emit the fully processed signal chain
-        self.filter_applied.emit(data)
+        return data
+
+    def _run_filter(self) -> None:
+        session = self.view_model.current_session
+        if session is None:
+            return
+
+        enabled: bool = self.param_config["Enable Pipeline"]
+        logger.debug("Filter pipeline status: %s", enabled)
+
+        filtered_df = session.sensor_data.copy()
+
+        if enabled:
+            sensor_axes = ["ax", "ay", "az", "gx", "gy", "gz", "qx", "qy", "qz", "qw"]
+            for axis in sensor_axes:
+                if axis in filtered_df.columns:
+                    raw_data = np.asarray(filtered_df[axis], dtype=np.float64)
+                    filtered_df[axis] = self._apply_pipeline(raw_data, axis, session)
+
+        # Emit the fully processed DataFrame across all axes
+        self.filter_applied.emit(filtered_df)

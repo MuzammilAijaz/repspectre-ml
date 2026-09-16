@@ -82,14 +82,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     #===== Callbacks ==============================================================
 
-    def on_filter_applied(self, filtered_data: np.ndarray) -> None:
+    def on_filter_applied(self, filtered_df: pd.DataFrame) -> None:
         session = self.view_model.current_session
         if session is None:
             return
 
-        axis = self.view_model.current_active_axis
-        # Update only the active axis column in modified_data with the filtered array
-        session.modified_data[axis] = filtered_data
+        # Updates all the axis
+        session.modified_data = filtered_df
 
         self.update_graph(session.modified_data[axis])
         self.update_detection()
