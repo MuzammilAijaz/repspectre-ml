@@ -38,6 +38,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.region: pg.LinearRegionItem | None = None
         self.curve: pg.PlotDataItem | None = None
 
+        # Rep detection toggle button (below graph, above data selection pane)
+        self.rep_detection_enabled: bool = True
+        self.toggle_detection_btn = QtWidgets.QPushButton("Disable Rep Detection")
+        self.toggle_detection_btn.clicked.connect(self.on_toggle_rep_detection)
+        layout.addWidget(self.toggle_detection_btn)
+
         self.setCentralWidget(central)
 
         # Model Loader & ViewModel
@@ -106,6 +112,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_graph(session.modified_data[axis])
         self.update_detection()
 
+    def on_toggle_rep_detection(self) -> None:
+        self.rep_detection_enabled = not self.rep_detection_enabled
+        if self.rep_detection_enabled:
+            self.toggle_detection_btn.setText("Disable Rep Detection")
+            self.update_detection()
+        else:
+            self.toggle_detection_btn.setText("Enable Rep Detection")
+            self.update_region(False, 0, 0)
+
     #==============================================================================
 
     def update_graph(self, plot_data: pd.Series | np.ndarray | pd.DataFrame) -> None:
@@ -133,6 +148,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_region(False, 0, 0)
 
     def update_detection(self) -> None:
+        if not self.rep_detection_enabled:
+            self.update_region(False, 0, 0)
+            return
+
         session = self.view_model.current_session
         if session is None:
             return
@@ -140,23 +159,23 @@ class MainWindow(QtWidgets.QMainWindow):
         # Redetect repetitions
         df = session.modified_data
         detection: RepDetectionResult | None = detect_rep_axis(
-                df,
-                axis=self.view_model.current_active_axis,
-                fs=int(round(calculate_sampling_rate(df))),
-                baseline_seconds=1.0,
-                k_start=24.0,
-                k_end=5.0,
-                smooth_window=5,
-                min_duration=0.12,
-                )
+            df,
+            axis=self.view_model.current_active_axis,
+            fs=int(round(calculate_sampling_rate(df))),
+            baseline_seconds=1.0,
+            k_start=24.0,
+            k_end=5.0,
+            smooth_window=5,
+            min_duration=0.12,
+        )
         session.detection = detection
 
         if detection is not None:
             self.update_region(
-                    True,
-                    detection.model_start_idx,
-                    detection.model_end_idx,
-                    )
+                True,
+                detection.model_start_idx,
+                detection.model_end_idx,
+            )
         else:
             self.update_region(False, 0, 0)
 
