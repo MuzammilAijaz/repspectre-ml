@@ -113,6 +113,7 @@ class FilterSelectionPane(QtWidgets.QWidget):
         # Internal signal wiring
         self.param_config.sigTreeStateChanged.connect(self._on_param_changed)
         self.view_model.session_changed.connect(self._on_session_changed)
+        self.view_model.axis_changed.connect(self._on_session_changed)
 
         # Initial execution
         self._run_filter()

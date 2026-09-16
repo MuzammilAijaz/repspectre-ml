@@ -171,10 +171,10 @@ class CsvSessionLoader:
         return VisualizerSession(
             path=path,
             sensor_data=df,
-            # axis_data=axis_data,
             detection=detection,
             sampling_rate=fs,
             session_id=session_id,
+            modified_data=df.copy(),
         )
 
     def get_sessions_count(self) -> int:

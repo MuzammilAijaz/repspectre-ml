@@ -22,4 +22,5 @@ class VisualizerSession:
     detection: RepDetectionResult | None
     sampling_rate: float
     session_id: int | str
+    modified_data: pd.DataFrame
 

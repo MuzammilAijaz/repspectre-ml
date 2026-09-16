@@ -4,11 +4,14 @@ import logging
 from typing import Final
 
 import numpy as np
+import pandas as pd
 import pyqtgraph as pg
 from model.csv_session_loader import CsvSessionLoader
-from model.visualizer_session import VisualizerSession
+from model.visualizer_session import RepDetectionResult, VisualizerSession
 from pyqtgraph.Qt import QtWidgets
 
+from lift_ml.utils.rep_detection import detect_rep_axis
+from lift_ml.utils.sampling import calculate_sampling_rate
 from ui.panes.filter_selector_pane import FilterSelectionPane
 from ui.panes.session_selector_pane import SessionSelectorPane
 from ui.view.session_viewmodel import SessionViewModel
@@ -66,70 +69,111 @@ class MainWindow(QtWidgets.QMainWindow):
             "Initializing UI with %d available dataset folders",
             len(available_datasets),
         )
-        self.selector_pane.set_available_datasets(
-            available_datasets, self.loader.current_data_dir
-        )
+        self.selector_pane.set_available_datasets(available_datasets, self.loader.current_data_dir)
 
         # Initial render
         self.on_session_changed(self.view_model.current_session)
 
+    #===== Callbacks ==============================================================
+
     def on_filter_applied(self, filtered_data: np.ndarray) -> None:
-        if self.curve is not None:
-            self.curve.setData(filtered_data)
+        session = self.view_model.current_session
+        if session is None:
+            return
+
+        axis = self.view_model.current_active_axis
+        # Update only the active axis column in modified_data with the filtered array
+        session.modified_data[axis] = filtered_data
+
+        self.update_graph(session.modified_data[axis])
+        self.update_detection()
 
     def on_session_changed(self, session: VisualizerSession | None) -> None:
         if session is None:
             logger.warning("No session to display (session is None)")
-            if self.curve is not None:
-                self.plot_widget.removeItem(self.curve)
-                self.curve = None
-            self.update_region(False, 0, 0)
+            self.clear_graph()
+            return
+
+        # Reset modified_data to a fresh copy of original sensor_data for the new session
+        session.modified_data = session.sensor_data.copy()
+
+        axis = self.view_model.current_active_axis
+        logger.info(
+            "Plotting session '%s' with %d data points",
+            session.path.name,
+            len(session.modified_data[axis]),
+        )
+        self.update_graph(session.modified_data[axis])
+        self.update_detection()
+
+    #==============================================================================
+
+    def update_graph(self, plot_data: pd.Series | np.ndarray | pd.DataFrame) -> None:
+        if self.view_model.current_session is None:
+            logger.warning("No session to display (session is None)")
+            self.clear_graph()
             return
 
         # Clear previous curve
         if self.curve is not None:
             self.plot_widget.removeItem(self.curve)
 
-        logger.info(
-            "Plotting session '%s' with %d data points",
-            session.path.name,
-            len(session.sensor_data[self.view_model.current_active_axis]),
-        )
         self.curve = self.plot_widget.plot(
-            session.sensor_data[self.view_model.current_active_axis],
+            plot_data,
             clickable=True,
         )
         if self.curve is not None:
             self.curve.curve.setClickable(True)
             self.curve.setPen("w")  ## white pen
 
-        if session.detection is not None:
-            logger.info(
-                "Drawing rep region for '%s': start=%d, end=%d",
-                session.path.name,
-                session.detection.model_start_idx,
-                session.detection.model_end_idx,
-            )
+    def clear_graph(self) -> None:
+        if self.curve is not None:
+            self.plot_widget.removeItem(self.curve)
+            self.curve = None
+        self.update_region(False, 0, 0)
+
+    def update_detection(self) -> None:
+        session = self.view_model.current_session
+        if session is None:
+            return
+
+        # Redetect repetitions
+        df = session.modified_data
+        detection: RepDetectionResult | None = detect_rep_axis(
+                df,
+                axis=self.view_model.current_active_axis,
+                fs=int(round(calculate_sampling_rate(df))),
+                baseline_seconds=1.0,
+                k_start=24.0,
+                k_end=5.0,
+                smooth_window=5,
+                min_duration=0.12,
+                )
+        session.detection = detection
+
+        if detection is not None:
             self.update_region(
-                True,
-                session.detection.model_start_idx,
-                session.detection.model_end_idx,
-            )
+                    True,
+                    detection.model_start_idx,
+                    detection.model_end_idx,
+                    )
         else:
             self.update_region(False, 0, 0)
 
     def update_region(self, is_on: bool, start: int, end: int) -> None:
         if self.region is not None:
             self.plot_widget.removeItem(self.region)
-
-        if is_on:
-            self.region = pg.LinearRegionItem(
-                [start, end], orientation="vertical"
-            )
-            self.plot_widget.addItem(self.region)
-        else:
             self.region = None
 
-
-
+        if is_on:
+            session = self.view_model.current_session
+            if session is not None and session.detection is not None:
+                logger.info(
+                    "Drawing rep region for '%s': start=%d, end=%d",
+                    session.path.name,
+                    start,
+                    end,
+                )
+            self.region = pg.LinearRegionItem([start, end], orientation="vertical")
+            self.plot_widget.addItem(self.region)
 

@@ -26,6 +26,11 @@ class SessionViewModel(QObject):
             self.current_idx
         )
 
+        # Modified data: represents any form of filtering done to the original dataset.
+        # The original copy will be the current_session.sensor_data as backup.
+        if self.current_session is not None:
+            self.current_session.modified_data = self.current_session.sensor_data.copy()
+
     def on_axis_changed(self, axis: str) -> None:
         self.current_active_axis = axis
         self.axis_changed.emit(self.current_session)
