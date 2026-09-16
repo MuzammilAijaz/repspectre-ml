@@ -15,6 +15,7 @@ from lift_ml.utils.sampling import calculate_sampling_rate
 from ui.panes.filter_selector_pane import FilterSelectionPane
 from ui.panes.session_selector_pane import SessionSelectorPane
 from ui.view.session_viewmodel import SessionViewModel
+from ui.windows.classification_window import ClassificationWindow
 
 logger: Final = logging.getLogger("ui.windows.main_window")
 
@@ -37,12 +38,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # Plot items
         self.region: pg.LinearRegionItem | None = None
         self.curve: pg.PlotDataItem | None = None
+        self.classification_window: ClassificationWindow | None = None
 
-        # Rep detection toggle button (below graph, above data selection pane)
+        # Control buttons (below graph, above data selection pane)
+        btn_layout = QtWidgets.QHBoxLayout()
         self.rep_detection_enabled: bool = True
         self.toggle_detection_btn = QtWidgets.QPushButton("Disable Rep Detection")
         self.toggle_detection_btn.clicked.connect(self.on_toggle_rep_detection)
-        layout.addWidget(self.toggle_detection_btn)
+        btn_layout.addWidget(self.toggle_detection_btn)
+
+        self.btn_classify = QtWidgets.QPushButton("Classify Data")
+        self.btn_classify.clicked.connect(self.open_classification_window)
+        btn_layout.addWidget(self.btn_classify)
+
+        layout.addLayout(btn_layout)
 
         self.setCentralWidget(central)
 
@@ -90,8 +99,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Updates all the axis
         session.modified_data = filtered_df
 
+        axis = self.view_model.current_active_axis
         self.update_graph(session.modified_data[axis])
         self.update_detection()
+
+        # Keep classification window updated with single source of truth (modified_data)
+        if self.classification_window is not None and self.classification_window.isVisible():
+            self.classification_window.update_graphs(session.modified_data)
 
     def on_session_changed(self, session: VisualizerSession | None) -> None:
         if session is None:
@@ -99,6 +113,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.clear_graph()
             return
 
+        # Safety mechanism:
         # Reset modified_data to a fresh copy of original sensor_data for the new session
         session.modified_data = session.sensor_data.copy()
 
@@ -111,6 +126,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_graph(session.modified_data[axis])
         self.update_detection()
 
+        if self.classification_window is not None and self.classification_window.isVisible():
+            self.classification_window.update_graphs(session.modified_data)
+
     def on_toggle_rep_detection(self) -> None:
         self.rep_detection_enabled = not self.rep_detection_enabled
         if self.rep_detection_enabled:
@@ -120,7 +138,20 @@ class MainWindow(QtWidgets.QMainWindow):
             self.toggle_detection_btn.setText("Enable Rep Detection")
             self.update_region(False, 0, 0)
 
-    #==============================================================================
+    def open_classification_window(self) -> None:
+        """Opens or brings to front the multi-graph classification window."""
+        if self.classification_window is None:
+            self.classification_window = ClassificationWindow(
+                self.view_model,
+                parent=self,
+            )
+        self.classification_window.show()
+        self.classification_window.raise_()
+        self.classification_window.activateWindow()
+        if self.view_model.current_session is not None:
+            self.classification_window.update_graphs(self.view_model.current_session.modified_data)
+
+    #===== Graph Updating =========================================================
 
     def update_graph(self, plot_data: pd.Series | np.ndarray | pd.DataFrame) -> None:
         if self.view_model.current_session is None:
